@@ -8,10 +8,13 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
+import unicodedata
 from datetime import datetime, timezone
 from typing import Any
 
 import gspread
+from gspread.exceptions import APIError, SpreadsheetNotFound
 from google.oauth2.service_account import Credentials
 
 logger = logging.getLogger(__name__)
@@ -41,24 +44,113 @@ def _load_credentials_from_env() -> Credentials:
     return Credentials.from_service_account_info(info, scopes=_SCOPE)
 
 
+_SHEETS_ID_FROM_URL = re.compile(
+    r"/spreadsheets/d/([a-zA-Z0-9-_]+)", re.IGNORECASE
+)
+
+
+def _normalize_google_sheet_id(raw: str | None) -> str:
+    """Tırnak, BOM, baş/son boşluk ve tam URL içinden tablo kimliğini çıkarır."""
+    if raw is None:
+        return ""
+    s = raw.strip()
+    if s.startswith("\ufeff"):
+        s = s.lstrip("\ufeff").strip()
+    if len(s) >= 2 and s[0] == s[-1] and s[0] in ('"', "'"):
+        s = s[1:-1].strip()
+    m = _SHEETS_ID_FROM_URL.search(s)
+    if m:
+        return m.group(1)
+    return s
+
+
+def _open_spreadsheet(gc: gspread.Client, spreadsheet_key: str):
+    """Önce open_by_key, SpreadsheetNotFound olursa open_by_url dener."""
+    try:
+        return gc.open_by_key(spreadsheet_key)
+    except SpreadsheetNotFound:
+        url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_key}/edit"
+        logger.warning(
+            "open_by_key tabloyu bulamadı (404); open_by_url deneniyor: %s",
+            url,
+        )
+        return gc.open_by_url(url)
+
+
+def _canonical_tab_title(title: str) -> str:
+    """Sekme adlarını görünmez Unicode / boşluk / büyük-küçük harf kaynaklı fark için karşılaştırır."""
+    t = unicodedata.normalize("NFKC", title or "").strip()
+    return " ".join(t.split()).casefold()
+
+
+def _find_worksheet_by_title(sh: gspread.Spreadsheet, title: str) -> gspread.Worksheet | None:
+    """Önce tam başlık eşleşmesi; sonra NFKC/normalize+küçük harf ile eşleşme."""
+    sheets = sh.worksheets()
+    for ws in sheets:
+        if ws.title == title:
+            return ws
+    want = _canonical_tab_title(title)
+    for ws in sheets:
+        if _canonical_tab_title(ws.title) == want:
+            logger.info(
+                "Sekme başlığı esnek eşleştirildi: aranan=%r, kullanılan=%r",
+                title,
+                ws.title,
+            )
+            return ws
+    logger.warning(
+        "Sekme bulunamadı (%r). Mevcut başlıklar (repr): %s",
+        title,
+        [repr(w.title) for w in sheets],
+    )
+    return None
+
+
 def _open_sheet():
-    sheet_id = os.environ.get("GOOGLE_SHEET_ID", "").strip()
-    if not sheet_id:
-        raise ValueError("GOOGLE_SHEET_ID ortam değişkeni boş.")
+    raw = os.environ.get("GOOGLE_SHEET_ID")
+    normalized_id = _normalize_google_sheet_id(raw if raw is not None else "")
+    logger.info(
+        "GOOGLE_SHEET_ID okuma: ortamda_tanımlı=%s, ham_uzunluk=%s, ham_repr=%s, normalize_id=%s",
+        raw is not None,
+        len(raw) if raw else 0,
+        repr(raw) if raw is not None else "<ortamda yok>",
+        normalized_id if normalized_id else "<boş veya çıkarılamadı>",
+    )
+    if not normalized_id:
+        raise ValueError("GOOGLE_SHEET_ID ortam değişkeni boş veya geçersiz.")
 
     creds = _load_credentials_from_env()
     gc = gspread.authorize(creds)
-    sh = gc.open_by_key(sheet_id)
+    sh = _open_spreadsheet(gc, normalized_id)
 
-    try:
-        ws = sh.worksheet(SENT_SHEET_TITLE)
-    except gspread.WorksheetNotFound:
+    ws = _find_worksheet_by_title(sh, SENT_SHEET_TITLE)
+    if ws is None:
         logger.info(
-            "'%s' sayfası bulunamadı; oluşturuluyor ve başlık satırı yazılıyor.",
+            "'%s' sayfası yok veya başlık farklı; oluşturulmayı deniyorum.",
             SENT_SHEET_TITLE,
         )
-        ws = sh.add_worksheet(title=SENT_SHEET_TITLE, rows=1000, cols=10)
-        ws.append_row(HEADER_ROW, value_input_option="USER_ENTERED")
+        try:
+            ws = sh.add_worksheet(title=SENT_SHEET_TITLE, rows=1000, cols=10)
+            ws.append_row(HEADER_ROW, value_input_option="USER_ENTERED")
+        except APIError as exc:
+            err_low = str(exc).lower()
+            if (
+                "already exists" not in err_low
+                and "duplicate" not in err_low
+            ):
+                raise
+            logger.warning(
+                "Sekme eklenemedi (muhtemelen aynı isim API tarafından zaten kayıtlı): %s "
+                "- mevcut sekmeler tekrar taranıyor.",
+                exc,
+            )
+            ws = _find_worksheet_by_title(sh, SENT_SHEET_TITLE)
+            if ws is None:
+                raise RuntimeError(
+                    f"'{SENT_SHEET_TITLE}' sekmesi oluşturulamadı ve yine bulunamadı. "
+                    "Google Sheets'te sekme başlığını elle 'Sent Items' yapın veya "
+                    "tüm sekmelerin listesindeki çıktıya bakın.",
+                ) from exc
 
     return ws
 
