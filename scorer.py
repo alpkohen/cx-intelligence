@@ -1,6 +1,6 @@
 """
 Claude API ile içerik puanlama.
-10'luk gruplar halinde tek API isteği ile toplu puanlama (maliyet optimizasyonu).
+10'luk gruplar halinde tek API isteği ile toplu puanlama (CLAUDE_MODEL: Claude 3.5 Sonnet, config'de tanımlı).
 """
 
 from __future__ import annotations

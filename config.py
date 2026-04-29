@@ -74,8 +74,8 @@ TAVILY_QUERIES = [
     "CCaaS cloud contact center news",
 ]
 
-# Claude model (hızlı ve ekonomik)
-CLAUDE_MODEL = "claude-3-5-haiku-20241022"
+# Claude model (3.5 Sonnet)
+CLAUDE_MODEL = "claude-3-5-sonnet-20241022"
 
 # Puanlama için tek istekte işlenecek içerik sayısı
 SCORER_BATCH_SIZE = 10
