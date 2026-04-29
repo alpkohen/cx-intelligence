@@ -62,8 +62,8 @@ Yanıtın SADECE geçerli bir JSON nesnesi olmalı (başka metin yok). Şema:
       "index": 0,
       "score": <1-10 tam sayı>,
       "category": "<kısa İngilizce kategori kodu örn research_report, case_study, news>",
-      "one_liner": "<Türkçe tek cümle özet>",
-      "why_relevant": "<Neden önemli - Türkçe tek cümle>",
+      "one_liner": "<Türkçe 2-3 cümle özet: konuyu, yöntemi veya temel bulguyu açıkla — ne yapıldı, nasıl yapıldı ve sonuç veya çıkarım ne>",
+      "why_relevant": "<Türkçe 1-2 cümle: CX veya çağrı merkezi uygulayıcısı olarak bu içerikten somut ne öğrenebilirsin, hangi kararında veya projesinde kullanabilirsin>",
       "read_time": "<tahmini okuma süresi, örn 5 dk>"
     }
   ]
