@@ -36,12 +36,15 @@ def _load_credentials_from_env() -> Credentials:
             "GOOGLE_SERVICE_ACCOUNT_JSON tanımlı değil. Service account JSON içeriğini ortam değişkenine ekleyin."
         )
     try:
-        info = json.loads(raw)
+        creds_dict = json.loads(raw)
     except json.JSONDecodeError as exc:
         raise ValueError(
             "GOOGLE_SERVICE_ACCOUNT_JSON geçerli bir JSON değil. GitHub Secrets'ta kaçış karakterlerini kontrol edin."
         ) from exc
-    return Credentials.from_service_account_info(info, scopes=_SCOPE)
+    # GitHub Secrets gibi ortamlarda PEM satırları bazen literal "\n" olarak gelir (pyasn1 EndOfStreamError).
+    if isinstance(creds_dict.get("private_key"), str):
+        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+    return Credentials.from_service_account_info(creds_dict, scopes=_SCOPE)
 
 
 _SHEETS_ID_FROM_URL = re.compile(
