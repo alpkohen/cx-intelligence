@@ -75,7 +75,7 @@ TAVILY_QUERIES = [
 ]
 
 # Claude model (3.5 Sonnet)
-CLAUDE_MODEL = "claude-3-5-sonnet-20241022"
+CLAUDE_MODEL = "claude-3-5-sonnet-20240620"
 
 # Puanlama için tek istekte işlenecek içerik sayısı
 SCORER_BATCH_SIZE = 10

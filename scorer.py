@@ -1,6 +1,6 @@
 """
 Claude API ile içerik puanlama.
-10'luk gruplar halinde tek API isteği ile toplu puanlama (CLAUDE_MODEL: Claude 3.5 Sonnet, config'de tanımlı).
+Toplu istek ile zenginleştirme; puan olarak her zaman varsayılan (5), Claude düşerse bile e-posta akışı sürer.
 """
 
 from __future__ import annotations
@@ -15,6 +15,9 @@ import anthropic
 from config import CLAUDE_MODEL, SCORER_BATCH_SIZE
 
 logger = logging.getLogger(__name__)
+
+# Tüm son kayıtlar bu puana sabitlenir (MIN_SCORE filtresi main'de kapalı olsa da tutarlı özet).
+DEFAULT_SCORE = 5
 
 SYSTEM_INSTRUCTIONS = """Sen çağrı merkezi, müşteri deneyimi (CX) ve müşteri hizmetleri alanında uzman bir analistsin.
 Verilen her içerik için aşağıdaki puanlama ölçeğini kullan:
@@ -65,23 +68,62 @@ def _build_client(api_key: str) -> anthropic.Anthropic:
     return anthropic.Anthropic(api_key=api_key)
 
 
+def _apply_default_rating(row: dict[str, Any], *, fallback_note: str | None = None) -> None:
+    """Tüm çıkışları DEFAULT_SCORE (5) ile hizalar; bildirim alanı için isteğe bağlı not."""
+    row["score"] = DEFAULT_SCORE
+    if fallback_note:
+        row.setdefault("scorer_note", fallback_note)
+
+
+def _row_from_fallback(
+    original: dict[str, Any],
+    *,
+    one_liner: str,
+    why_relevant: str,
+    category: str = "fallback",
+    note: str | None = None,
+) -> dict[str, Any]:
+    scored_row = dict(original)
+    scored_row["category"] = category
+    scored_row["one_liner"] = one_liner
+    scored_row["why_relevant"] = why_relevant
+    scored_row["read_time"] = "—"
+    _apply_default_rating(scored_row, fallback_note=note)
+    return scored_row
+
+
 def score_items(
     items: list[dict[str, Any]],
     anthropic_api_key: str,
     batch_size: int = SCORER_BATCH_SIZE,
 ) -> list[dict[str, Any]]:
     """
-    Her içeriğe score, category, one_liner, why_relevant, read_time alanlarını ekler.
-    Başarısız veya eksik sonuçlar için konservatif varsayılan atanır (düşük puan).
+    Her içeriğe score (sabit varsayılan 5), category, one_liner vb. eklenir.
+
+    Claude kullanılırsa bu alanlar modelden gelir; aksi halde veya istek düşerse
+    güvenli placeholder ile DEFAULT_SCORE atanır — anahtar eksik/API hatası iş akışını durdurmaz.
     """
     if not items:
         logger.info("Puanlanacak içerik yok.")
         return []
 
-    if not anthropic_api_key or not anthropic_api_key.strip():
-        raise ValueError("ANTHROPIC_API_KEY boş olamaz.")
+    key = (anthropic_api_key or "").strip()
+    if not key:
+        logger.warning(
+            "ANTHROPIC_API_KEY boş; Claude atlanıyor. Tüm öğeler varsayılan %s puan + fallback metinleri.",
+            DEFAULT_SCORE,
+        )
+        return [
+            _row_from_fallback(
+                it,
+                one_liner="Claude atanmadı; varsayılan özet kullanılıyor.",
+                why_relevant="API anahtarı olmadan otomatik eklendi.",
+                note="missing_api_key",
+            )
+            for it in items
+        ]
 
-    client = _build_client(anthropic_api_key.strip())
+    client = _build_client(key)
     out: list[dict[str, Any]] = []
 
     for start in range(0, len(items), batch_size):
@@ -141,48 +183,51 @@ def score_items(
                 scored_row = dict(original)
                 hit = by_idx.get(local_i)
                 if hit:
-                    try:
-                        scored_row["score"] = int(hit.get("score", 0))
-                    except (TypeError, ValueError):
-                        scored_row["score"] = 0
-                    scored_row["category"] = str(hit.get("category") or "unknown")
-                    scored_row["one_liner"] = str(hit.get("one_liner") or "").strip()
-                    scored_row["why_relevant"] = str(hit.get("why_relevant") or "").strip()
+                    scored_row["category"] = str(hit.get("category") or "unknown").strip()
+                    scored_row["one_liner"] = str(hit.get("one_liner") or "").strip() or (
+                        "Özet oluşturulamadı."
+                    )
+                    scored_row["why_relevant"] = str(hit.get("why_relevant") or "").strip() or (
+                        "Özet oluşturulamadı."
+                    )
                     scored_row["read_time"] = str(hit.get("read_time") or "—").strip()
+                    _apply_default_rating(scored_row)
                 else:
                     logger.warning(
-                        "Claude yanıtında indeks eksik: toplu grup içi index=%s, URL=%s",
+                        "Claude yanıtında indeks eksik: grup içi index=%s, URL=%s — varsayılan metin kullanılacak.",
                         local_i,
                         original.get("url"),
                     )
-                    scored_row["score"] = 0
                     scored_row["category"] = "unknown"
-                    scored_row["one_liner"] = "Otomatik puanlama başarısız."
-                    scored_row["why_relevant"] = "Model yanıtı bu öğe için tamamlanmadı."
+                    scored_row["one_liner"] = "Model bu öğe için eksik döndü; varsayılan puan."
+                    scored_row["why_relevant"] = (
+                        "Yanıtta bu içerik için sonuç yoktu; günlük e-postasında yine dahil."
+                    )
                     scored_row["read_time"] = "—"
-
-                # Makul aralıkta tut
-                sc = scored_row.get("score", 0)
-                if isinstance(sc, int):
-                    scored_row["score"] = max(1, min(10, sc))
-                else:
-                    scored_row["score"] = 1
+                    _apply_default_rating(scored_row, fallback_note="missing_index")
 
                 out.append(scored_row)
 
         except Exception as exc:
             logger.exception(
-                "Claude toplu puanlama hatası (varsayılan düşük puan atanacı): %s",
+                "Claude toplu puanlama düştü (%s); bu grup için varsayılan %s puan uygulanıyor.",
                 exc,
+                DEFAULT_SCORE,
             )
             for original in batch:
-                scored_row = dict(original)
-                scored_row["score"] = 1
-                scored_row["category"] = "error"
-                scored_row["one_liner"] = "Puanlama sırasında hata oluştu."
-                scored_row["why_relevant"] = "API veya ayrıştırma hatası nedeniyle elendi."
-                scored_row["read_time"] = "—"
-                out.append(scored_row)
+                out.append(
+                    _row_from_fallback(
+                        original,
+                        one_liner="Claude kullanılamadı; günlük özet yine oluşturuldu.",
+                        why_relevant="API veya ayrıştırma hatası — varsayılan puan kullanıldı.",
+                        category="error_fallback",
+                        note=f"batch_error:{type(exc).__name__}",
+                    )
+                )
 
-    logger.info("Puanlama tamamlandı: toplam %s içerik işlendi.", len(out))
+    logger.info(
+        "Puanlama tamamlandı: toplam %s içerik (tümünde çıkış puanı=%s).",
+        len(out),
+        DEFAULT_SCORE,
+    )
     return out
