@@ -23,6 +23,7 @@ from dotenv import load_dotenv
 from collector import collect_all
 from config import CLAUDE_MODEL, MAX_ITEMS_PER_EMAIL, MIN_SCORE_TO_SEND
 from emailer import build_html_email, format_subject, send_daily_email
+from linkedin import suggest_linkedin_posts
 from scorer import score_items
 from sheets import get_sent_count, load_sent_url_set, mark_as_sent
 
@@ -130,7 +131,23 @@ def main() -> int:
     # --- 7. E-posta ---
     log.info("Adım 7/9: HTML e-posta oluşturuluyor ve Resend ile gönderiliyor.")
     today_tr = datetime.now().strftime("%d.%m.%Y")
-    html_body = build_html_email(selected, report_date=today_tr)
+
+    linkedin_suggestions = []
+    log.info("Adım 7b: LinkedIn post adayları tespit ediliyor.")
+    try:
+        linkedin_suggestions = suggest_linkedin_posts(
+            scored_items=selected,
+            anthropic_api_key=anthropic_key,
+        )
+        log.info("LinkedIn önerisi sayısı: %s", len(linkedin_suggestions))
+    except Exception:
+        log.exception("LinkedIn adımı başarısız; devam ediliyor.")
+
+    html_body = build_html_email(
+        selected,
+        report_date=today_tr,
+        linkedin_suggestions=linkedin_suggestions,
+    )
     subject = format_subject(len(selected), date_label=today_tr)
 
     send_daily_email(html_body=html_body, subject=subject)

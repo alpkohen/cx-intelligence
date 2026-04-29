@@ -81,9 +81,100 @@ def _escape_html(text: str) -> str:
     )
 
 
+def build_linkedin_section(suggestions: list[dict[str, Any]]) -> str:
+    """LinkedIn öneri kartlarını HTML olarak üretir. E-postanın sonuna eklenir."""
+    if not suggestions:
+        return ""
+
+    cards = []
+    for it in suggestions:
+        title = _escape_html(it.get("title") or "")
+        url = _escape_html(it.get("url") or "#")
+        source = _escape_html(it.get("source") or "")
+        pillar = _escape_html(it.get("li_pillar") or "")
+        angle = _escape_html(it.get("li_angle") or "")
+        hook = _escape_html(it.get("li_hook") or "")
+        fit = int(it.get("li_fit_score") or 0)
+
+        cards.append(f"""
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0"
+       style="border-collapse:collapse;background:#ffffff;border-radius:6px;
+              border:1px solid #e8e5df;border-top:3px solid #0077b5;
+              box-shadow:0 1px 3px rgba(0,0,0,0.06);margin-bottom:12px;">
+  <tr>
+    <td style="padding:18px 22px 14px 22px;">
+      <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;letter-spacing:0.12em;
+                text-transform:uppercase;color:#0077b5;
+                font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">
+        {pillar} &nbsp;·&nbsp; Uyum {fit}/10
+      </p>
+      <h3 style="margin:0 0 8px 0;font-size:15px;font-weight:700;line-height:1.4;">
+        <a href="{url}" style="color:#111111;text-decoration:none;
+                               font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;"
+           target="_blank" rel="noopener noreferrer">{title}</a>
+      </h3>
+      <p style="margin:0 0 12px 0;font-size:12px;color:#999999;
+                font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{source}</p>
+      <div style="height:1px;background:#f0ede6;margin-bottom:12px;"></div>
+      <p style="margin:0 0 4px 0;font-size:10px;font-weight:700;letter-spacing:0.1em;
+                text-transform:uppercase;color:#bbbbbb;
+                font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Açı</p>
+      <p style="margin:0 0 12px 0;font-size:13px;color:#444444;line-height:1.55;
+                font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{angle}</p>
+      <p style="margin:0 0 4px 0;font-size:10px;font-weight:700;letter-spacing:0.1em;
+                text-transform:uppercase;color:#bbbbbb;
+                font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Önerilen Hook</p>
+      <p style="margin:0;font-size:13px;color:#555555;line-height:1.5;font-style:italic;
+                font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">"{hook}"</p>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:10px 22px;border-top:1px solid #f0ede6;">
+      <p style="margin:0;font-size:11px;color:#aaaaaa;line-height:1.6;
+                font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">
+        Alp LinkedIn projesine kopyala-yapıştır:
+      </p>
+      <p style="margin:6px 0 0 0;font-size:11px;color:#777777;line-height:1.7;
+                font-family:'Courier New',monospace;background:#f8f6f2;
+                padding:8px 10px;border-radius:4px;word-break:break-word;">
+        Bu makaleyi LinkedIn postuna dönüştür<br>
+        Makale: {url}<br>
+        Pillar: {pillar}<br>
+        Hook: {hook}
+      </p>
+    </td>
+  </tr>
+</table>""")
+
+    section_header = """
+<tr>
+  <td style="padding:24px 0 12px 0;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+      <tr>
+        <td style="padding-bottom:12px;">
+          <p style="margin:0;font-size:11px;font-weight:700;letter-spacing:0.14em;
+                    text-transform:uppercase;color:#0077b5;
+                    font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">
+            &#9670; LinkedIn Post Adayları
+          </p>
+          <p style="margin:4px 0 0 0;font-size:12px;color:#aaaaaa;
+                    font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">
+            Alp LinkedIn projesine kopyala-yapıştır ile işle
+          </p>
+        </td>
+      </tr>
+      <tr><td>""" + "\n".join(cards) + """</td></tr>
+    </table>
+  </td>
+</tr>"""
+
+    return section_header
+
+
 def build_html_email(
     items: list[dict[str, Any]],
     report_date: str,
+    linkedin_suggestions: list[dict[str, Any]] | None = None,
 ) -> str:
     origin_counts = Counter(
         (it.get("_collector_origin") or "unknown").lower() for it in items
@@ -168,6 +259,8 @@ def build_html_email(
 
     body_inner = "\n".join(cards_html)
 
+    linkedin_html = build_linkedin_section(linkedin_suggestions or [])
+
     html = f"""<!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -199,6 +292,8 @@ def build_html_email(
               </table>
             </td>
           </tr>
+
+          {linkedin_html}
 
           <!-- FOOTER STATS -->
           <tr>
