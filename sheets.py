@@ -29,36 +29,153 @@ _SCOPE = [
     "https://www.googleapis.com/auth/drive",
 ]
 
-
-def _load_credentials_from_env() -> Credentials:
-    """GOOGLE_SERVICE_ACCOUNT_JSON ortam değişkeninden service account kimlik bilgisini yükler."""
-    raw = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "").strip()
-    if not raw:
-        raise ValueError(
-            "GOOGLE_SERVICE_ACCOUNT_JSON tanımlı değil. Service account JSON içeriğini ortam değişkenine ekleyin."
-        )
-    padded = raw + "=" * ((-len(raw)) % 4)
-    try:
-        decoded_bytes = base64.b64decode(padded)
-    except (binascii.Error, ValueError, TypeError) as exc:
-        raise ValueError(
-            "GOOGLE_SERVICE_ACCOUNT_JSON geçerli base64 değil; GitHub Secrets değerini kontrol edin."
-        ) from exc
-    try:
-        creds_dict = json.loads(decoded_bytes)
-    except json.JSONDecodeError as exc:
-        raise ValueError(
-            "GOOGLE_SERVICE_ACCOUNT_JSON base64 sonrası geçerli JSON değil."
-        ) from exc
-    # PEM satırları bazen literal "\\n" olarak gelir (pyasn1 EndOfStreamError).
-    if isinstance(creds_dict.get("private_key"), str):
-        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-    return Credentials.from_service_account_info(creds_dict, scopes=_SCOPE)
-
-
 _SHEETS_ID_FROM_URL = re.compile(
     r"/spreadsheets/d/([a-zA-Z0-9-_]+)", re.IGNORECASE
 )
+
+
+def _normalize_private_key_pem(creds: dict[str, Any]) -> None:
+    """PEM bazen tek satırda literal \\\\n ile gelir; pyasn1 hatasını önlemek için gerçek satır sonlarına çevir."""
+    pk = creds.get("private_key")
+    if not isinstance(pk, str):
+        return
+    if "\\n" not in pk:
+        return
+    creds["private_key"] = pk.replace("\\n", "\n")
+    logger.info(
+        "GOOGLE_SERVICE_ACCOUNT_JSON: private_key içinde %s adet literal '\\\\n' gerçek satır sonuna çevrildi.",
+        pk.count("\\n"),
+    )
+
+
+def _parse_credentials_dict(raw: str) -> dict[str, Any]:
+    """
+    GOOGLE_SERVICE_ACCOUNT_JSON için önce düz JSON, sonra base64 kodlu JSON dener.
+
+    Ham metin güvenlik nedeniyle loglanmaz; yalnızca uzunluk ve hata ayrıntıları yazılır.
+    """
+    if not raw or not raw.strip():
+        logger.error(
+            "GOOGLE_SERVICE_ACCOUNT_JSON boş veya yalnızca boşluk; ortam değişkenini doldurun."
+        )
+        raise ValueError(
+            "GOOGLE_SERVICE_ACCOUNT_JSON tanımlı değil veya boş. Service account kimliğini ekleyin."
+        )
+
+    raw = raw.strip()
+    logger.info(
+        "GOOGLE_SERVICE_ACCOUNT_JSON yükleme başladı: ham_uzunluk=%s (kimlik içeriği günlüklenmez)",
+        len(raw),
+    )
+
+    # 1) Düz JSON
+    try:
+        data = json.loads(raw)
+        if not isinstance(data, dict):
+            logger.warning(
+                "GOOGLE_SERVICE_ACCOUNT_JSON düz JSON parse edildi ancak kök tip dict değil (%s); base64 yolu deneniyor.",
+                type(data).__name__,
+            )
+        else:
+            logger.info(
+                "GOOGLE_SERVICE_ACCOUNT_JSON: düz json.loads başarılı (client_email=%r).",
+                data.get("client_email", ""),
+            )
+            _normalize_private_key_pem(data)
+            return data
+    except json.JSONDecodeError as exc:
+        logger.info(
+            "GOOGLE_SERVICE_ACCOUNT_JSON düz JSON parse reddedildi: %s "
+            "(satır %s, sütun %s, pozisyon %s); base64 yolu deneniyor.",
+            exc.msg,
+            exc.lineno,
+            exc.colno,
+            exc.pos,
+        )
+
+    # 2) Base64 decode + JSON
+    padded = raw + "=" * ((-len(raw)) % 4)
+    try:
+        decoded = base64.b64decode(padded)
+    except (binascii.Error, ValueError, TypeError) as exc:
+        logger.error(
+            "GOOGLE_SERVICE_ACCOUNT_JSON base64 çözümü başarısız: %r. "
+            "Düz JSON da parse edilemedi; secret formatını kontrol edin.",
+            exc,
+            exc_info=True,
+        )
+        raise ValueError(
+            "GOOGLE_SERVICE_ACCOUNT_JSON ne geçerli düz JSON ne de çözülebilir base64. "
+            "Yerelde ham JSON kullanın veya Secrets için tek satır base64 kullanın."
+        ) from exc
+
+    try:
+        text = decoded.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        logger.error(
+            "Base64 çıktısı UTF-8 metne çevrilemiyor: %s (başlangıç=%r, uzunluk=%s)",
+            exc,
+            decoded[:40],
+            len(decoded),
+            exc_info=True,
+        )
+        raise ValueError(
+            "GOOGLE_SERVICE_ACCOUNT_JSON base64 sonrası UTF-8 değil."
+        ) from exc
+
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        logger.error(
+            "Base64 sonrası json.loads başarısız: %s (satır %s sütun %s pos %s)",
+            exc.msg,
+            exc.lineno,
+            exc.colno,
+            exc.pos,
+            exc_info=True,
+        )
+        raise ValueError(
+            "GOOGLE_SERVICE_ACCOUNT_JSON base64 doğru görünüyor ancak içerdeki JSON geçersiz."
+        ) from exc
+
+    if not isinstance(data, dict):
+        logger.error(
+            "Base64 sonrası JSON kök tipi dict beklenirdi, gelen=%s.",
+            type(data).__name__,
+        )
+        raise ValueError(
+            "GOOGLE_SERVICE_ACCOUNT_JSON içindeki JSON bir nesne (object) değil."
+        )
+
+    logger.info(
+        "GOOGLE_SERVICE_ACCOUNT_JSON: base64 decode + json.loads başarılı (client_email=%r).",
+        data.get("client_email", ""),
+    )
+    _normalize_private_key_pem(data)
+    return data
+
+
+def _load_credentials_from_env() -> Credentials:
+    raw = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "").strip()
+    try:
+        creds_dict = _parse_credentials_dict(raw)
+    except ValueError:
+        raise
+    except Exception as exc:
+        logger.exception(
+            "GOOGLE_SERVICE_ACCOUNT_JSON işlenirken beklenmeyen hata: %s",
+            exc,
+        )
+        raise
+
+    try:
+        return Credentials.from_service_account_info(creds_dict, scopes=_SCOPE)
+    except Exception as exc:
+        logger.exception(
+            "Service account Credential oluşturulamıyor (dosya yapısı, private_key veya scopes): %s",
+            exc,
+        )
+        raise
 
 
 def _normalize_google_sheet_id(raw: str | None) -> str:
