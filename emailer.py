@@ -45,32 +45,28 @@ def _validate_resend_from_address(from_email: str) -> None:
 
 
 def _badge_for_score(score: int) -> tuple[str, str, str]:
-    """
-    Puana göre rozet metni ve yaklaşık renk kodları döner.
-    Dönüş: (emoji_etiket_html, kısa_etiket, sınıf_suffix)
-    """
     if score >= 9:
         return (
-            '<span style="display:inline-block;padding:6px 12px;border-radius:999px;font-weight:700;font-size:13px;background:#c62828;color:#fff;">🔴 MUTLAKA OKU</span>',
+            '<span style="display:inline-block;padding:4px 10px;border-radius:3px;font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;background:#111111;color:#c9a84c;font-family:-apple-system,\'Helvetica Neue\',Arial,sans-serif;">MUTLAKA OKU &nbsp;{}/10</span>'.format(score),
             "MUTLAKA OKU",
-            "critical",
+            "gold",
         )
     if score >= 7:
         return (
-            '<span style="display:inline-block;padding:6px 12px;border-radius:999px;font-weight:700;font-size:13px;background:#ef6c00;color:#fff;">🟠 ÖNEMLİ</span>',
+            '<span style="display:inline-block;padding:4px 10px;border-radius:3px;font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;background:#2d1a0a;color:#e07b4a;font-family:-apple-system,\'Helvetica Neue\',Arial,sans-serif;">ÖNEMLİ &nbsp;{}/10</span>'.format(score),
             "ÖNEMLİ",
-            "high",
+            "orange",
         )
     if score >= 5:
         return (
-            '<span style="display:inline-block;padding:6px 12px;border-radius:999px;font-weight:700;font-size:13px;background:#f9a825;color:#111;">🟡 İLGİNİ ÇEKEBİLİR</span>',
-            "İLGİNİ ÇEKEBİLİR",
-            "mid",
+            '<span style="display:inline-block;padding:4px 10px;border-radius:3px;font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;background:#eef0f4;color:#5a6a80;font-family:-apple-system,\'Helvetica Neue\',Arial,sans-serif;">GÜNDEM &nbsp;{}/10</span>'.format(score),
+            "GÜNDEM",
+            "steel",
         )
     return (
-        '<span style="display:inline-block;padding:6px 12px;border-radius:999px;font-weight:700;font-size:13px;background:#78909c;color:#fff;">⚪ GENEL HABERLER</span>',
-        "GENEL HABERLER",
-        "low",
+        '<span style="display:inline-block;padding:4px 10px;border-radius:3px;font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;background:#f0ede6;color:#aaaaaa;font-family:-apple-system,\'Helvetica Neue\',Arial,sans-serif;">GENEL &nbsp;{}/10</span>'.format(score),
+        "GENEL",
+        "muted",
     )
 
 
@@ -89,57 +85,86 @@ def build_html_email(
     items: list[dict[str, Any]],
     report_date: str,
 ) -> str:
-    """Gösterilecek içerik kartları ile tam HTML gövdesi üretir."""
     origin_counts = Counter(
         (it.get("_collector_origin") or "unknown").lower() for it in items
     )
     rss_n = origin_counts.get("rss", 0)
     tavily_n = origin_counts.get("tavily", 0)
 
+    avg_score = (
+        sum(int(it.get("score") or 0) for it in items) / len(items)
+        if items else 0
+    )
+
+    def top_border(score: int) -> str:
+        if score >= 9:
+            return "border-top:3px solid #c9a84c;"
+        if score >= 7:
+            return "border-top:3px solid #e07b4a;"
+        if score >= 5:
+            return "border-top:3px solid #94a3b8;"
+        return "border-top:3px solid #dddddd;"
+
     cards_html = []
     for it in items:
         score = int(it.get("score") or 0)
         badge_html, _, _ = _badge_for_score(score)
-        title = _escape_html(it.get("title") or "")
-        url = _escape_html(it.get("url") or "#")
-        source = _escape_html(it.get("source") or "")
-        pub = _escape_html(it.get("published_date") or "—")
+        title     = _escape_html(it.get("title") or "")
+        url       = _escape_html(it.get("url") or "#")
+        source    = _escape_html(it.get("source") or "")
+        pub       = _escape_html(it.get("published_date") or "—")
         one_liner = _escape_html(it.get("one_liner") or "")
-        why = _escape_html(it.get("why_relevant") or "")
+        why       = _escape_html(it.get("why_relevant") or "")
         read_time = _escape_html(it.get("read_time") or "—")
+        tb        = top_border(score)
 
-        cards_html.append(
-            f"""
+        cards_html.append(f"""
 <tr>
-  <td style="padding:16px 0;border-bottom:1px solid #334155;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#1e293b;border-radius:12px;border:1px solid #334155;">
+  <td style="padding:0 0 14px 0;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
+           style="border-collapse:collapse;background:#ffffff;border-radius:6px;
+                  border:1px solid #e8e5df;{tb}
+                  box-shadow:0 1px 3px rgba(0,0,0,0.06);">
       <tr>
-        <td style="padding:16px 18px;">
+        <td style="padding:20px 22px 0 22px;">
           <div style="margin-bottom:12px;">{badge_html}</div>
-          <h2 style="margin:0 0 10px 0;font-size:18px;line-height:1.35;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;">
-            <a href="{url}" style="color:#38bdf8;text-decoration:none;" target="_blank" rel="noopener noreferrer">{title}</a>
+          <h2 style="margin:0 0 8px 0;font-size:17px;line-height:1.4;font-weight:700;">
+            <a href="{url}"
+               style="color:#111111;text-decoration:none;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;"
+               target="_blank" rel="noopener noreferrer">{title}</a>
           </h2>
-          <p style="margin:0 0 12px 0;font-size:13px;color:#94a3b8;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;">
-            <span style="color:#cbd5e1;">{source}</span>
-            <span style="color:#64748b;"> · </span>
+          <p style="margin:0 0 14px 0;font-size:12px;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#999999;">
+            <span style="color:#777777;font-weight:500;">{source}</span>
+            <span style="color:#dddddd;">&nbsp;·&nbsp;</span>
             <span>{pub}</span>
           </p>
-          <p style="margin:0 0 8px 0;font-size:14px;color:#e2e8f0;line-height:1.5;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;">
-            <strong style="color:#f1f5f9;">Özet:</strong> {one_liner}
-          </p>
-          <p style="margin:0 0 8px 0;font-size:14px;color:#cbd5e1;line-height:1.5;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;">
-            <strong style="color:#f1f5f9;">Neden önemli:</strong> {why}
-          </p>
-          <p style="margin:0;font-size:13px;color:#94a3b8;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;">
-            Tahmini okuma: {read_time}
-          </p>
+          <div style="height:1px;background:#f0ede6;margin-bottom:14px;"></div>
+          <p style="margin:0 0 4px 0;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#bbbbbb;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Özet</p>
+          <p style="margin:0 0 12px 0;font-size:14px;color:#444444;line-height:1.55;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{one_liner}</p>
+          <p style="margin:0 0 4px 0;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#bbbbbb;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Neden Önemli</p>
+          <p style="margin:0 0 16px 0;font-size:13px;color:#777777;line-height:1.5;font-style:italic;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{why}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:10px 22px;border-top:1px solid #f0ede6;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+            <tr>
+              <td>
+                <a href="{url}"
+                   style="font-size:12px;font-weight:700;color:#c9a84c;text-decoration:none;letter-spacing:0.03em;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;"
+                   target="_blank" rel="noopener noreferrer">Makaleyi oku &rarr;</a>
+              </td>
+              <td align="right">
+                <span style="font-size:11px;color:#cccccc;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{read_time}</span>
+              </td>
+            </tr>
+          </table>
         </td>
       </tr>
     </table>
   </td>
 </tr>
-"""
-        )
+""")
 
     body_inner = "\n".join(cards_html)
 
@@ -147,42 +172,80 @@ def build_html_email(
 <html lang="tr">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="color-scheme" content="light dark">
-  <meta name="supported-color-schemes" content="light dark">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <title>CX Intelligence</title>
 </head>
-<body style="margin:0;padding:0;background:#0f172a;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#0f172a;">
+<body style="margin:0;padding:0;background:#f0ede6;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f0ede6;">
     <tr>
-      <td align="center" style="padding:24px 12px;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;border-collapse:collapse;">
+      <td align="center" style="padding:0 12px 32px 12px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;border-collapse:collapse;">
+
+          <!-- HEADER -->
           <tr>
-            <td style="padding:20px 4px 8px 4px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;">
-              <h1 style="margin:0;font-size:22px;color:#f8fafc;">Günlük CX &amp; Çağrı Merkezi Intelligence</h1>
-              <p style="margin:8px 0 0 0;font-size:14px;color:#94a3b8;">Tarih: { _escape_html(report_date) }</p>
+            <td style="background:#111111;padding:28px 32px 24px 32px;border-radius:0;">
+              <p style="margin:0 0 8px 0;font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#c9a84c;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Günlük Bülten</p>
+              <h1 style="margin:0 0 6px 0;font-size:24px;font-weight:700;color:#ffffff;letter-spacing:-0.3px;line-height:1.2;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">CX &amp; Çağrı Merkezi Intelligence</h1>
+              <p style="margin:0;font-size:13px;color:#777777;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{ _escape_html(report_date) } &nbsp;·&nbsp; {len(items)} içerik seçildi</p>
+              <div style="margin-top:20px;height:1px;background:linear-gradient(90deg,#c9a84c 0%,#c9a84c 40%,transparent 100%);"></div>
             </td>
           </tr>
+
+          <!-- CARDS -->
           <tr>
-            <td style="padding:8px 4px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#cbd5e1;font-size:14px;line-height:1.6;">
-              <p style="margin:0;">
-                Bu özet; RSS kaynakları ve Tavily web aramasıyla toplanan içeriklerin yapay zekâ ile puanlanmasıyla oluşturulmuştur.
-              </p>
+            <td style="padding:20px 0 0 0;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                {body_inner}
+              </table>
             </td>
           </tr>
-          {body_inner}
+
+          <!-- FOOTER STATS -->
           <tr>
-            <td style="padding:24px 4px 8px 4px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#94a3b8;font-size:13px;line-height:1.7;">
-              <hr style="border:none;border-top:1px solid #334155;margin:16px 0;">
-              <p style="margin:0 0 8px 0;"><strong style="color:#e2e8f0;">Özet istatistikler</strong></p>
-              <p style="margin:0;">Toplam içerik: <strong style="color:#e2e8f0;">{len(items)}</strong></p>
-              <p style="margin:8px 0 0 0;">Kaynak dağılımı: RSS <strong style="color:#e2e8f0;">{rss_n}</strong> · Tavily <strong style="color:#e2e8f0;">{tavily_n}</strong></p>
-              <p style="margin:16px 0 0 0;font-size:12px;color:#64748b;">
-                Sistem: Python toplayıcı → Claude puanlama → Google Sheets mükerrer kontrolü → Resend ile gönderim.
-                Renk kodları: 🔴 MUTLAKA OKU (9–10), 🟠 ÖNEMLİ (7–8), 🟡 İLGİNİ ÇEKEBİLİR (5–6), ⚪ GENEL HABERLER (1–4).
-              </p>
+            <td style="padding:20px 0 8px 0;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
+                     style="background:#ffffff;border-radius:6px;border:1px solid #e8e5df;">
+                <tr>
+                  <td style="padding:18px 22px;">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                      <tr>
+                        <td align="center" style="border-right:1px solid #f0ede6;padding:0 0 0 0;">
+                          <p style="margin:0;font-size:20px;font-weight:700;color:#111111;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{len(items)}</p>
+                          <p style="margin:4px 0 0 0;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#aaaaaa;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">İçerik</p>
+                        </td>
+                        <td align="center" style="border-right:1px solid #f0ede6;">
+                          <p style="margin:0;font-size:20px;font-weight:700;color:#111111;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{rss_n}</p>
+                          <p style="margin:4px 0 0 0;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#aaaaaa;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">RSS</p>
+                        </td>
+                        <td align="center" style="border-right:1px solid #f0ede6;">
+                          <p style="margin:0;font-size:20px;font-weight:700;color:#111111;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{tavily_n}</p>
+                          <p style="margin:4px 0 0 0;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#aaaaaa;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Tavily</p>
+                        </td>
+                        <td align="center">
+                          <p style="margin:0;font-size:20px;font-weight:700;color:#c9a84c;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{avg_score:.1f}</p>
+                          <p style="margin:4px 0 0 0;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#aaaaaa;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Ort. Puan</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:0 22px 16px 22px;border-top:1px solid #f0ede6;">
+                    <p style="margin:14px 0 8px 0;font-size:11px;color:#cccccc;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;line-height:1.7;">
+                      RSS + Tavily &rarr; Claude Haiku puanlama &rarr; Google Sheets de-dup &rarr; Resend
+                    </p>
+                    <p style="margin:0;font-size:11px;color:#cccccc;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">
+                      <span style="color:#c9a84c;font-weight:700;">&#9632;</span> Mutlaka Oku (9–10) &nbsp;
+                      <span style="color:#e07b4a;font-weight:700;">&#9632;</span> Önemli (7–8) &nbsp;
+                      <span style="color:#94a3b8;font-weight:700;">&#9632;</span> Gündem (5–6) &nbsp;
+                      <span style="color:#dddddd;font-weight:700;">&#9632;</span> Genel (1–4)
+                    </p>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
+
         </table>
       </td>
     </tr>
