@@ -1,0 +1,6 @@
+# Yerel ortam ve sırlar
+.env
+.venv/
+venv/
+__pycache__/
+*.py[cod]

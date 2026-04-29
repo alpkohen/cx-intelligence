@@ -1,0 +1,48 @@
+name: CX Intelligence Günlük E-posta
+
+on:
+  schedule:
+    # Türkiye saati 07:00 (TRT, UTC+3) ≈ 04:00 UTC
+    - cron: "0 4 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  send-daily-email:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
+      RESEND_TO_EMAIL: ${{ secrets.RESEND_TO_EMAIL }}
+      GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+      GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+
+    steps:
+      - name: Depoyu indir
+        uses: actions/checkout@v4
+
+      - name: Python 3.11 kurulumu
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
+
+      - name: Bağımlılıkları yükle
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Günlük CX Intelligence çalıştır
+        run: python main.py
+
+      - name: Hata bildirimi (isteğe bağlı)
+        if: failure()
+        run: |
+          echo "::error::CX Intelligence günlük iş akışı başarısız oldu. Günlükleri kontrol edin."
