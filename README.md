@@ -4,9 +4,9 @@ Her sabah (GitHub Actions ile Türkiye saati ~07:00) RSS akışları ve Tavily w
 
 ## Özellikler
 
-- **Toplama:** `feedparser` ile liste halinde RSS kaynakları + `tavily-python` ile önceden tanımlı sorgular.
-- **Puanlama:** `claude-3-5-haiku-20241022`, 10’luk gruplar halinde toplu istek (maliyet optimizasyonu).
-- **Kalıcı kayıt:** Service account ile Google Sheets (`Sent Items`) üzerinden URL mükerrer kontrolü ve gönderim günlüğü.
+- **Toplama:** `feedparser` ile `config.py` içinde listelenen (**≈57**) RSS akışı + `tavily-python` ile önceden tanımlı sorgular.
+- **Puanlama:** `claude-haiku-4-5-20251001` (grup başına `SCORER_BATCH_SIZE` kadar öğe; `config.py` üzerinden ayarlanır).
+- **Kalıcı kayıt:** Service account ile Google Sheets (`Sent Items`) üzerinden URL mükerrer kontrolü ve gönderim günlüğü (AI alanları dahil).
 - **E-posta:** Resend API ile responsive, inline CSS HTML gövdesi ve puana göre renk kodlu rozetler.
 
 ## Gereksinimler
@@ -57,7 +57,7 @@ pip install -r requirements.txt
 2. **APIs & Services → Enable APIs** bölümünden **Google Sheets API** ve **Google Drive API**’yi etkinleştirin (Drive, paylaşılan dosyaya erişim için gereklidir).
 3. **IAM & Admin → Service Accounts** ile bir service account oluşturun.
 4. Bu hesap için **JSON anahtarı** indirin (kimlik bilgisi dosyası).
-5. Google Sheets’te yeni bir tablo oluşturun; ilk sekmenin adı **`Sent Items`** olmalıdır (ilk çalıştırmada otomatik oluşturulabilir; ilk satır başlıkları `URL`, `Title`, `Score`, `Date Sent`, `Source` şeklinde yazılır).
+5. Google Sheets’te yeni bir tablo oluşturun; ilk sekmenin adı **`Sent Items`** olmalıdır (ilk çalıştırmada otomatik oluşturulabilir; ilk satır başlıkları `URL`, `Title`, `Score`, `Date Sent`, `Source`, `Category`, `Summary (AI)`, `Why Relevant (AI)`, `Read Time (AI)` şeklinde yazılır).
 6. Tabloyu service account e-postasıyla **Editör** olarak paylaşın (`client_email` alanı JSON içindedir).
 7. Tablonun kimliğini URL’den kopyalayın (`GOOGLE_SHEET_ID`).
 8. JSON dosyasının **tam içeriğini** tek satırda `.env` içinde `GOOGLE_SERVICE_ACCOUNT_JSON={...}` olarak saklayın.
@@ -116,6 +116,7 @@ GitHub’daki workflow sayfasından **Run workflow** ile `workflow_dispatch` üz
 - **Sheets “permission denied”:** Tabloyu service account ile paylaştığınızdan ve iki API’nin etkin olduğundan emin olun.
 - **Resend gönderim hatası:** Gönderen domain ve SPF/DKIM doğrulamasını kontrol edin.
 - **RSS boş:** Bazı kaynaklar geçici olarak engelleyebilir; günlüklerde hangi akışın atlandığı yazılır.
+- **Tüm içerikler aynı rozette (ör. yalnızca 🟡 İLGİNİ ÇEKEBİLİR):** `scorer.py` içinde Claude’dan gelen puan okunmuyorsa bu görülebilir. `config.py` içindeki `MIN_SCORE_TO_SEND` değerini kontrol edin ve GitHub Actions (veya yerel) günlüklerinde `ortalama puan=` satırını arayın.
 
 ## Lisans
 

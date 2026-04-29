@@ -1,6 +1,6 @@
 """
 Claude API ile içerik puanlama.
-Toplu istek ile zenginleştirme; puan olarak her zaman varsayılan (5), Claude düşerse bile e-posta akışı sürer.
+Claude başarılıysa gerçek 1–10 puan kullanılır; yalnızca fallback/düşme yollarında varsayılan puan atanır.
 """
 
 from __future__ import annotations
@@ -8,7 +8,8 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Any
+import time
+from typing import Any, Callable
 
 import anthropic
 from anthropic import NotFoundError
@@ -17,10 +18,32 @@ from config import CLAUDE_MODEL, SCORER_BATCH_SIZE
 
 logger = logging.getLogger(__name__)
 
+
+def _call_with_retry(fn: Callable[[], Any], *, retries: int = 3, base_delay: float = 5.0):
+    """Exponential backoff ile API çağrısını yeniden dener."""
+    last_exc = None
+    for attempt in range(retries):
+        try:
+            return fn()
+        except Exception as exc:
+            last_exc = exc
+            if attempt < retries - 1:
+                wait = base_delay * (2**attempt)
+                logger.warning(
+                    "API çağrısı başarısız (deneme %s/%s): %s — %.0fs sonra yeniden denenecek.",
+                    attempt + 1,
+                    retries,
+                    exc,
+                    wait,
+                )
+                time.sleep(wait)
+    assert last_exc is not None
+    raise last_exc
+
 # Eski/yanlış model kimliğinde her batch için aynı ERROR'u tekrarlama
 _logged_claude_model_missing = False
 
-# Tüm son kayıtlar bu puana sabitlenir (MIN_SCORE filtresi main'de kapalı olsa da tutarlı özet).
+# Claude puanı geçersiz/missing veya fallback yollarında kullanılan varsayılan.
 DEFAULT_SCORE = 5
 
 SYSTEM_INSTRUCTIONS = """Sen çağrı merkezi, müşteri deneyimi (CX) ve müşteri hizmetleri alanında uzman bir analistsin.
@@ -73,7 +96,7 @@ def _build_client(api_key: str) -> anthropic.Anthropic:
 
 
 def _apply_default_rating(row: dict[str, Any], *, fallback_note: str | None = None) -> None:
-    """Tüm çıkışları DEFAULT_SCORE (5) ile hizalar; bildirim alanı için isteğe bağlı not."""
+    """Yalnızca fallback dalında DEFAULT_SCORE yazar."""
     row["score"] = DEFAULT_SCORE
     if fallback_note:
         row.setdefault("scorer_note", fallback_note)
@@ -102,10 +125,9 @@ def score_items(
     batch_size: int = SCORER_BATCH_SIZE,
 ) -> list[dict[str, Any]]:
     """
-    Her içeriğe score (sabit varsayılan 5), category, one_liner vb. eklenir.
+    Her içeriğe score (Claude başarılıysa 1–10), category, one_liner vb. eklenir.
 
-    Claude kullanılırsa bu alanlar modelden gelir; aksi halde veya istek düşerse
-    güvenli placeholder ile DEFAULT_SCORE atanır — anahtar eksik/API hatası iş akışını durdurmaz.
+    Fallback yollarında güvenli placeholder ve varsayılan puan atanır; anahtar eksik/API hatası iş akışını durdurabilir (e-posta yine seçime bağlı).
     """
     if not items:
         logger.info("Puanlanacak içerik yok.")
@@ -160,11 +182,13 @@ def score_items(
         )
 
         try:
-            msg = client.messages.create(
-                model=CLAUDE_MODEL,
-                max_tokens=4096,
-                system=SYSTEM_INSTRUCTIONS,
-                messages=[{"role": "user", "content": user_content}],
+            msg = _call_with_retry(
+                lambda: client.messages.create(
+                    model=CLAUDE_MODEL,
+                    max_tokens=4096,
+                    system=SYSTEM_INSTRUCTIONS,
+                    messages=[{"role": "user", "content": user_content}],
+                )
             )
             text_parts = []
             for block in getattr(msg, "content", []) or []:
@@ -188,14 +212,23 @@ def score_items(
                 hit = by_idx.get(local_i)
                 if hit:
                     scored_row["category"] = str(hit.get("category") or "unknown").strip()
-                    scored_row["one_liner"] = str(hit.get("one_liner") or "").strip() or (
-                        "Özet oluşturulamadı."
-                    )
-                    scored_row["why_relevant"] = str(hit.get("why_relevant") or "").strip() or (
-                        "Özet oluşturulamadı."
+                    scored_row["one_liner"] = str(hit.get("one_liner") or "").strip() or "Özet oluşturulamadı."
+                    scored_row["why_relevant"] = (
+                        str(hit.get("why_relevant") or "").strip() or "Özet oluşturulamadı."
                     )
                     scored_row["read_time"] = str(hit.get("read_time") or "—").strip()
-                    _apply_default_rating(scored_row)
+                    try:
+                        raw_score = hit.get("score")
+                        scored_row["score"] = (
+                            max(1, min(10, int(raw_score))) if raw_score is not None else DEFAULT_SCORE
+                        )
+                    except (TypeError, ValueError):
+                        scored_row["score"] = DEFAULT_SCORE
+                        logger.warning(
+                            "Claude geçersiz score döndürdü (%r); varsayılan %s uygulandı.",
+                            hit.get("score"),
+                            DEFAULT_SCORE,
+                        )
                 else:
                     logger.warning(
                         "Claude yanıtında indeks eksik: grup içi index=%s, URL=%s — varsayılan metin kullanılacak.",
@@ -217,7 +250,7 @@ def score_items(
             if not _logged_claude_model_missing:
                 logger.error(
                     "Claude API: model bulunamıyor (%r). Bu genelde emekli/geçersiz model kimliği demektir — "
-                    "config.CLAUDE_MODEL değerini güncel bir ID ile değiştirin (ör. claude-sonnet-4-6). "
+                    "config.CLAUDE_MODEL değerini güncel bir ID ile değiştirin (ör. claude-haiku-4-5-20251001). "
                     "Dokümantasyon: Anthropic Models overview. Detay: %s",
                     CLAUDE_MODEL,
                     exc,
@@ -256,9 +289,7 @@ def score_items(
                     )
                 )
 
-    logger.info(
-        "Puanlama tamamlandı: toplam %s içerik (tümünde çıkış puanı=%s).",
-        len(out),
-        DEFAULT_SCORE,
-    )
+    if out:
+        avg = sum(int(x.get("score") or 0) for x in out) / len(out)
+        logger.info("Puanlama tamamlandı: toplam %s içerik, ortalama puan=%.1f.", len(out), avg)
     return out

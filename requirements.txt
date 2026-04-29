@@ -1,8 +1,8 @@
-anthropic==0.45.2
+anthropic>=0.45.2
 tavily-python==0.5.4
 feedparser==6.0.11
 gspread==6.1.4
 google-auth==2.37.0
 resend==2.4.0
 python-dotenv==1.0.1
-requests==2.32.3
+requests>=2.32.3

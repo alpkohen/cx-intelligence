@@ -97,15 +97,17 @@ def main() -> int:
     scored = score_items(fresh_items, anthropic_api_key=anthropic_key)
 
     # --- 4. Minimum skor filtresi ---
-    # scorer tüm içeriklere varsayılan 5 puan (+ Claude varsa ek alanlar) verir;
-    # MIN_SCORE_TO_SEND filtresi uygulanmaz — düşük puanlı içerik e-postadan düşmez.
     log.info(
-        "Adım 4/9: Minimum skor filtresi atlandı (MIN_SCORE_TO_SEND=%s kullanılmıyor).",
+        "Adım 4/9: Minimum skor filtresi uygulanıyor (MIN_SCORE_TO_SEND=%s).",
         MIN_SCORE_TO_SEND,
     )
-    passed = list(scored)
-    dropped_low = 0
-    log.info("E-postaya aday içerik (filtre sonrası): %s", len(passed))
+    passed = [it for it in scored if int(it.get("score") or 0) >= MIN_SCORE_TO_SEND]
+    dropped_low = len(scored) - len(passed)
+    log.info(
+        "Filtre sonucu: aday=%s, düşük puan nedeniyle elenen=%s",
+        len(passed),
+        dropped_low,
+    )
 
     # --- 5. Sıralama ---
     log.info("Adım 5/9: İçerikler puana göre yüksekten düşüğe sıralanıyor.")

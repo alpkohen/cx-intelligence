@@ -28,7 +28,7 @@ TOPICS = [
 MIN_SCORE_TO_SEND = 5
 
 # Günlük özetde en fazla kaç içerik gösterilecek
-MAX_ITEMS_PER_EMAIL = 20
+MAX_ITEMS_PER_EMAIL = 15
 
 # RSS kaynakları.
 # Not: IDC Gartner vb. tam raporlar çoğu zaman ücret kapısı arkasındadır; günlükte genelde kamuya
@@ -77,6 +77,34 @@ RSS_FEEDS = [
     "https://www.reddit.com/r/CustomerSuccess/.rss",
     # === AKADEMİK ===
     "https://arxiv.org/rss/cs.HC",
+    # === BÜYÜK CCaaS PLATFORMLARI (eksik vendorlar) ===
+    "https://www.nice.com/blog/rss",
+    "https://www.five9.com/blog/rss",
+    "https://www.talkdesk.com/blog/feed/",
+    "https://www.avaya.com/blogs/feed/",
+    "https://www.8x8.com/blog/rss",
+    "https://www.verint.com/blog/rss",
+    "https://blog.webex.com/feed/",
+    # === WORKFORCE MANAGEMENT ===
+    "https://www.calabrio.com/wfo/resource/blog/feed/",
+    "https://workforce.nice.com/blog/rss",
+    # === AI / CONVERSATIONAL AI ===
+    "https://www.observe.ai/blog/rss.xml",
+    "https://yellow.ai/blog/feed/",
+    "https://cresta.com/blog/feed/",
+    # === SEKTÖR ETKİNLİKLERİ & YAYINLAR ===
+    "https://www.nojitter.com/rss.xml",
+    "https://www.icmi.com/rss",
+    "https://www.customercontactweekdigital.com/rss",
+    # === SEYAHAT / HAVACILIK CX ===
+    "https://skift.com/feed/",
+    "https://simpleflying.com/feed/",
+    # === MEDIUM TAG ===
+    "https://medium.com/feed/tag/customer-experience",
+    "https://medium.com/feed/tag/contact-center",
+    # === EK AKADEMİK ===
+    "https://arxiv.org/rss/cs.CL",
+    "https://arxiv.org/rss/cs.IR",
 ]
 
 # Tavily: araştırma duyuruları, analist özeti haberleri, benchmark haberleri
@@ -96,11 +124,17 @@ TAVILY_QUERIES = [
     "voice of customer VOC analytics enterprise XM Qualtrics Medallia",
     "NPS CSAT CES customer loyalty churn benchmark methodology industry",
     "CCaaS cloud contact center IPO funding market news consolidation",
+    "EC261 airline customer service complaint handling contact center best practice",
+    "BPO outsourcing customer service contact center market trends report 2026",
+    "contact center training certification industry L&D learning development",
+    "customer effort score CES friction reduction digital channel deflection",
+    "AI agent orchestration autonomous customer service resolution rate benchmark",
+    "Talkdesk Five9 NICE Verint CCaaS product update release announcement 2026",
+    "customer service burnout agent wellbeing attrition contact center workforce",
 ]
 
-# Claude model — güncel liste: https://docs.anthropic.com/en/docs/about-claude/models/overview
-# Eski tarihli snapshot'lar (ör. claude-3-5-sonnet-20240620) API'de 404 döner.
-CLAUDE_MODEL = "claude-sonnet-4-6"
+# Puanlama için Haiku yeterli ve ~10x daha ucuzdur. Derin analiz gerekirse claude-sonnet-4-6 kullanılabilir.
+CLAUDE_MODEL = "claude-haiku-4-5-20251001"
 
 # Puanlama için tek istekte işlenecek içerik sayısı
-SCORER_BATCH_SIZE = 10
+SCORER_BATCH_SIZE = 8

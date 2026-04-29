@@ -22,7 +22,17 @@ from google.oauth2.service_account import Credentials
 logger = logging.getLogger(__name__)
 
 SENT_SHEET_TITLE = "Sent Items"
-HEADER_ROW = ["URL", "Title", "Score", "Date Sent", "Source"]
+HEADER_ROW = [
+    "URL",
+    "Title",
+    "Score",
+    "Date Sent",
+    "Source",
+    "Category",
+    "Summary (AI)",
+    "Why Relevant (AI)",
+    "Read Time (AI)",
+]
 
 _SCOPE = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -259,7 +269,7 @@ def _open_sheet():
             SENT_SHEET_TITLE,
         )
         try:
-            ws = sh.add_worksheet(title=SENT_SHEET_TITLE, rows=1000, cols=10)
+            ws = sh.add_worksheet(title=SENT_SHEET_TITLE, rows=1000, cols=14)
             ws.append_row(HEADER_ROW, value_input_option="USER_ENTERED")
         except APIError as exc:
             err_low = str(exc).lower()
@@ -285,11 +295,23 @@ def _open_sheet():
 
 
 def _ensure_header(ws: gspread.Worksheet) -> None:
-    """İlk satır başlık değilse başlığı ekle (koruyucu)."""
+    """İlk satır başlık değilse başlığı ekle (koruyucu). Eski 5 sütunlu şemada üzerine yazma; uyar."""
     try:
         first = ws.row_values(1)
     except Exception:
         first = []
+    if (
+        first
+        and first[0].strip().upper() == "URL"
+        and len(first) < len(HEADER_ROW)
+    ):
+        logger.warning(
+            "Sent Items başlık satırı eski şemada (%s sütun gözlemlendi, beklenen en az %s). "
+            "Yeni sütunların etiketleri için Google Sheets'te ilk satırı elle güncelleyin; "
+            "satır verisi 9 sütun olarak eklenmeye devam edilir.",
+            len(first),
+            len(HEADER_ROW),
+        )
     if not first or first[0].strip().upper() != "URL":
         logger.warning(
             "Sayfa başlığı beklenen formatta değil; ilk satıra başlık yazılıyor."
@@ -359,6 +381,10 @@ def mark_as_sent(items: list[dict[str, Any]]) -> None:
                     str(it.get("score") if it.get("score") is not None else ""),
                     now,
                     str(it.get("source") or ""),
+                    str(it.get("category") or ""),
+                    str(it.get("one_liner") or ""),
+                    str(it.get("why_relevant") or ""),
+                    str(it.get("read_time") or ""),
                 ]
             )
         ws.append_rows(rows, value_input_option="USER_ENTERED")
