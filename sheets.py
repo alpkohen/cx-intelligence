@@ -5,6 +5,8 @@ Google Sheets entegrasyonu (service account).
 
 from __future__ import annotations
 
+import base64
+import binascii
 import json
 import logging
 import os
@@ -35,13 +37,20 @@ def _load_credentials_from_env() -> Credentials:
         raise ValueError(
             "GOOGLE_SERVICE_ACCOUNT_JSON tanımlı değil. Service account JSON içeriğini ortam değişkenine ekleyin."
         )
+    padded = raw + "=" * ((-len(raw)) % 4)
     try:
-        creds_dict = json.loads(raw)
+        decoded_bytes = base64.b64decode(padded)
+    except (binascii.Error, ValueError, TypeError) as exc:
+        raise ValueError(
+            "GOOGLE_SERVICE_ACCOUNT_JSON geçerli base64 değil; GitHub Secrets değerini kontrol edin."
+        ) from exc
+    try:
+        creds_dict = json.loads(decoded_bytes)
     except json.JSONDecodeError as exc:
         raise ValueError(
-            "GOOGLE_SERVICE_ACCOUNT_JSON geçerli bir JSON değil. GitHub Secrets'ta kaçış karakterlerini kontrol edin."
+            "GOOGLE_SERVICE_ACCOUNT_JSON base64 sonrası geçerli JSON değil."
         ) from exc
-    # GitHub Secrets gibi ortamlarda PEM satırları bazen literal "\n" olarak gelir (pyasn1 EndOfStreamError).
+    # PEM satırları bazen literal "\\n" olarak gelir (pyasn1 EndOfStreamError).
     if isinstance(creds_dict.get("private_key"), str):
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
     return Credentials.from_service_account_info(creds_dict, scopes=_SCOPE)
