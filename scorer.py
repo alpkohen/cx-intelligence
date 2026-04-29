@@ -11,10 +11,14 @@ import re
 from typing import Any
 
 import anthropic
+from anthropic import NotFoundError
 
 from config import CLAUDE_MODEL, SCORER_BATCH_SIZE
 
 logger = logging.getLogger(__name__)
+
+# Eski/yanlış model kimliğinde her batch için aynı ERROR'u tekrarlama
+_logged_claude_model_missing = False
 
 # Tüm son kayıtlar bu puana sabitlenir (MIN_SCORE filtresi main'de kapalı olsa da tutarlı özet).
 DEFAULT_SCORE = 5
@@ -207,6 +211,33 @@ def score_items(
                     _apply_default_rating(scored_row, fallback_note="missing_index")
 
                 out.append(scored_row)
+
+        except NotFoundError as exc:
+            global _logged_claude_model_missing
+            if not _logged_claude_model_missing:
+                logger.error(
+                    "Claude API: model bulunamıyor (%r). Bu genelde emekli/geçersiz model kimliği demektir — "
+                    "config.CLAUDE_MODEL değerini güncel bir ID ile değiştirin (ör. claude-sonnet-4-6). "
+                    "Dokümantasyon: Anthropic Models overview. Detay: %s",
+                    CLAUDE_MODEL,
+                    exc,
+                )
+                _logged_claude_model_missing = True
+            else:
+                logger.warning(
+                    "Claude model 404 (%r); grup için fallback (tekrarlı mesajlar bastırıldı).",
+                    CLAUDE_MODEL,
+                )
+            for original in batch:
+                out.append(
+                    _row_from_fallback(
+                        original,
+                        one_liner="Claude modeli API'de tanımsız; config'deki CLAUDE_MODEL güncellenmeli.",
+                        why_relevant="Model 404 — geçici özellikler kullanıldı.",
+                        category="model_not_found_fallback",
+                        note="not_found_error",
+                    )
+                )
 
         except Exception as exc:
             logger.exception(

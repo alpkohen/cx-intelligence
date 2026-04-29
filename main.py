@@ -21,7 +21,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 
 from collector import collect_all
-from config import MAX_ITEMS_PER_EMAIL, MIN_SCORE_TO_SEND
+from config import CLAUDE_MODEL, MAX_ITEMS_PER_EMAIL, MIN_SCORE_TO_SEND
 from emailer import build_html_email, format_subject, send_daily_email
 from scorer import score_items
 from sheets import get_sent_count, load_sent_url_set, mark_as_sent
@@ -48,6 +48,10 @@ def main() -> int:
 
     tavily_key = os.getenv("TAVILY_API_KEY", "")
     anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
+    log.info(
+        "Anthropic (Claude) model: %s — boş anahtar ise yalnızca varsayılan puan kullanılır.",
+        CLAUDE_MODEL,
+    )
 
     # --- 1. Toplama ---
     log.info("Adım 1/9: RSS ve Tavily kaynaklarından içerik toplanıyor.")

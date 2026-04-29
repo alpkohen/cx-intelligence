@@ -15,6 +15,34 @@ import resend
 
 logger = logging.getLogger(__name__)
 
+# Resend, gönderen olarak yalnızca doğrulanmış domain'e izin verir; ücretsiz posta kutuları doğrulanamaz.
+_RESEND_FORBIDDEN_FROM_SUFFIXES = (
+    "@gmail.com",
+    "@googlemail.com",
+    "@yahoo.com",
+    "@yahoo.co.uk",
+    "@hotmail.com",
+    "@outlook.com",
+    "@live.com",
+    "@msn.com",
+    "@icloud.com",
+    "@me.com",
+    "@mail.com",
+)
+
+
+def _validate_resend_from_address(from_email: str) -> None:
+    low = from_email.strip().lower()
+    for suf in _RESEND_FORBIDDEN_FROM_SUFFIXES:
+        if low.endswith(suf):
+            raise ValueError(
+                f'RESEND_FROM_EMAIL olarak "{from_email}" kullanılamaz: Resend, Gmail/Yahoo vb. '
+                "adresleri gönderen (From) olarak doğrulamaz. "
+                "Seçenekler: (1) Test için RESEND_FROM_EMAIL=onboarding@resend.dev "
+                "(2) Kendi domaininizi https://resend.com/domains üzerinden ekleyip doğrulayın, "
+                "ör. no-reply@alanadiniz.com. Alıcı (RESEND_TO_EMAIL) olarak gmail kullanmak sorun değildir."
+            )
+
 
 def _badge_for_score(score: int) -> tuple[str, str, str]:
     """
@@ -185,9 +213,18 @@ def send_daily_email(html_body: str, subject: str) -> dict[str, Any]:
     if not to_raw:
         raise ValueError("RESEND_TO_EMAIL boş.")
 
+    _validate_resend_from_address(from_email)
+
     resend.api_key = api_key
 
     to_list = [x.strip() for x in to_raw.split(",") if x.strip()]
+    logger.info(
+        "Resend gönderim ön kontrolü: API anahtarı uzunluk=%s, gönderen=%s, alıcı sayısı=%s",
+        len(api_key),
+        from_email,
+        len(to_list),
+    )
+
     params: dict[str, Any] = {
         "from": from_email,
         "to": to_list,
