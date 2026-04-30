@@ -1,9 +1,11 @@
 """
-Netlify üzerinde günlük ses dosyası yayınlama (Files API).
+Netlify üzerinde günlük ses dosyası yayınlama (deploy digest + dosya yükleme).
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import os
 import re
@@ -18,7 +20,7 @@ _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 def upload_audio(mp3_bytes: bytes, date_str: str) -> str | None:
     """
-    MP3'ü Netlify'a yükler.
+    MP3'ü Netlify'a yükler: özet (SHA1) ile deploy oluşturur, ardından ham dosyayı yükler.
 
     Args:
         mp3_bytes: Ham MP3 içeriği.
@@ -46,31 +48,69 @@ def upload_audio(mp3_bytes: bytes, date_str: str) -> str | None:
         )
         return None
 
-    path = f"audio/cx-{d}.mp3"
-    url = f"{NETLIFY_API_BASE}/sites/{site_id}/files/{path}"
+    digest_key = f"/audio/cx-{d}.mp3"
+    put_relative_path = f"audio/cx-{d}.mp3"
+    sha1_hex = hashlib.sha1(mp3_bytes).hexdigest()
 
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "audio/mpeg",
-    }
+    auth_bearer = {"Authorization": f"Bearer {token}"}
+
+    deploy_url = f"{NETLIFY_API_BASE}/sites/{site_id}/deploys"
 
     try:
-        resp = requests.put(
-            url,
+        post_resp = requests.post(
+            deploy_url,
+            json={"files": {digest_key: sha1_hex}},
+            headers={**auth_bearer, "Content-Type": "application/json"},
+            timeout=90,
+        )
+        if post_resp.status_code not in (200, 201):
+            logger.warning(
+                "netlify_upload: Deploy oluşturma HTTP %s — %s",
+                post_resp.status_code,
+                (post_resp.text or "")[:600],
+            )
+            return None
+
+        try:
+            deploy_data = post_resp.json()
+        except json.JSONDecodeError:
+            logger.warning("netlify_upload: Deploy yanıtı JSON değil: %s", (post_resp.text or "")[:300])
+            return None
+
+        deploy_id = deploy_data.get("id")
+        if not deploy_id:
+            logger.warning(
+                "netlify_upload: Deploy yanıtında id yok: %s",
+                str(deploy_data)[:400],
+            )
+            return None
+
+        file_put_url = f"{NETLIFY_API_BASE}/deploys/{deploy_id}/files/{put_relative_path}"
+        put_resp = requests.put(
+            file_put_url,
             data=mp3_bytes,
-            headers=headers,
+            headers={
+                **auth_bearer,
+                "Content-Type": "application/octet-stream",
+            },
             timeout=120,
         )
-        if resp.status_code in (200, 201, 204):
-            public = f"https://{site_name}.netlify.app/{path}"
-            logger.info("netlify_upload: Yüklendi — %s", public)
-            return public
-        logger.warning(
-            "netlify_upload: HTTP %s — %s",
-            resp.status_code,
-            (resp.text or "")[:500],
+
+        if put_resp.status_code not in (200, 201, 204):
+            logger.warning(
+                "netlify_upload: Dosya yükleme HTTP %s — %s",
+                put_resp.status_code,
+                (put_resp.text or "")[:600],
+            )
+            return None
+
+        public = f"https://{site_name}.netlify.app/{put_relative_path}"
+        logger.info(
+            "netlify_upload: Yüklendi (deploy=%s) — %s",
+            deploy_id[:12],
+            public,
         )
-        return None
+        return public
     except Exception:
         logger.exception("netlify_upload: İstek hatası.")
         return None
