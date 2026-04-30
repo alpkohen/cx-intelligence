@@ -279,6 +279,25 @@ def build_html_email(
         read_time = _escape_html(it.get("read_time") or "—")
         tb        = top_border(score)
 
+        enrich_block = ""
+        if score >= 7:
+            frags: list[str] = []
+            ds_raw = str(it.get("deep_summary") or "").strip()
+            ks_raw = str(it.get("key_insight") or "").strip()
+            if ds_raw:
+                ds_esc = _escape_html(ds_raw)
+                frags.append(f"""
+          <p style="margin:0 0 4px 0;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#bbbbbb;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">DEEP SUMMARY</p>
+          <p style="margin:0 0 12px 0;font-size:14px;color:#444444;line-height:1.55;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{ds_esc}</p>
+""")
+            if ks_raw:
+                ks_esc = _escape_html(ks_raw)
+                frags.append(f"""
+          <p style="margin:0 0 4px 0;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#bbbbbb;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">KRİTİK BULGU</p>
+          <p style="margin:0 0 12px 0;font-size:13px;color:#c9a84c;line-height:1.5;font-style:italic;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{ks_esc}</p>
+""")
+            enrich_block = "".join(frags)
+
         cards_html.append(f"""
 <tr>
   <td style="padding:0 0 14px 0;">
@@ -301,7 +320,7 @@ def build_html_email(
           </p>
           <div style="height:1px;background:#f0ede6;margin-bottom:14px;"></div>
           <p style="margin:0 0 4px 0;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#bbbbbb;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Özet</p>
-          <p style="margin:0 0 12px 0;font-size:14px;color:#444444;line-height:1.55;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{one_liner}</p>
+          <p style="margin:0 0 12px 0;font-size:14px;color:#444444;line-height:1.55;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{one_liner}</p>{enrich_block}
           <p style="margin:0 0 4px 0;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#bbbbbb;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Neden Önemli</p>
           <p style="margin:0 0 16px 0;font-size:13px;color:#777777;line-height:1.5;font-style:italic;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{why}</p>
         </td>
@@ -373,7 +392,7 @@ def build_html_email(
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>CX Intelligence</title>
+  <title>CX Intelligence Daily</title>
 </head>
 <body style="margin:0;padding:0;background:#f0ede6;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f0ede6;">
@@ -519,4 +538,4 @@ def format_subject(item_count: int, date_label: str | None = None) -> str:
     """Konu satırını oluşturur."""
     if date_label is None:
         date_label = datetime.now().strftime("%d.%m.%Y")
-    return f"🧠 CX Intelligence | {date_label} | {item_count} içerik"
+    return f"🧠 CX Intelligence Daily | {date_label} | {item_count} içerik"
