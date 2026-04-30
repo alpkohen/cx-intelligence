@@ -102,9 +102,6 @@ RSS_FEEDS = [
     # === MEDIUM TAG ===
     "https://medium.com/feed/tag/customer-experience",
     "https://medium.com/feed/tag/contact-center",
-    # === EK AKADEMİK ===
-    "https://arxiv.org/rss/cs.CL",
-    "https://arxiv.org/rss/cs.IR",
 ]
 
 # Tavily: araştırma duyuruları, analist özeti haberleri, benchmark haberleri

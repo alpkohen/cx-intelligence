@@ -1,6 +1,6 @@
 """
 RSS ve Tavily kaynaklarından içerik toplama modülü.
-Son 24 saat filtresi; tarih yoksa kaynak başına son 5 öğe alınır.
+Son 24 saat filtresi; her RSS akışı için en fazla RSS_MAX_ITEMS_PER_FEED öğe.
 """
 
 from __future__ import annotations
@@ -24,6 +24,9 @@ _FEED_REQUEST_HEADERS = {
 
 # Tavily sonuçları için kaynak etiketi
 TAVILY_SOURCE_LABEL = "Tavily"
+
+# Akış başına en fazla kaç öğe (yenideneskige); tek kaynakların (örn. arXiv) listeyi doldurmasını engeller.
+RSS_MAX_ITEMS_PER_FEED = 3
 
 
 def _normalize_url(url: str | None) -> str | None:
@@ -67,12 +70,13 @@ def _entry_summary(entry: Any) -> str:
     return ""
 
 
-def collect_from_rss(hours: int = 24, fallback_limit: int = 5) -> list[dict[str, Any]]:
+def collect_from_rss(hours: int = 24) -> list[dict[str, Any]]:
     """
     Tüm RSS_FEED URL'lerinden içerik çeker.
 
-    - Yayın tarihi olan girişler: son `hours` saat içindeyse dahil edilir.
-    - Tarihi olmayan girişler: kaynak bazında sıralanıp son `fallback_limit` öğe alınır.
+    - Yayın tarihi olan girişler: son `hours` saat içindeyse aday olarak alınır.
+    - Tarihsiz girişler: zaman penceresi dışı tarih filtresinden muaf tutulur; akış sırası korunur.
+    - Her akış için yalnızca en güncel ``RSS_MAX_ITEMS_PER_FEED`` öğe eklenir.
 
     Returns:
         title, url, source, published_date (ISO veya boş), summary içeren dict listesi.
@@ -98,57 +102,49 @@ def collect_from_rss(hours: int = 24, fallback_limit: int = 5) -> list[dict[str,
                 dt = _parse_entry_datetime(e)
                 dated.append((dt, e))
 
-            added_from_feed = 0
+            feed_candidates: list[tuple[datetime | None, int, dict[str, Any]]] = []
 
-            # Tarihi olanlar: zaman filtresi
-            for dt, entry in dated:
+            for idx_in_feed, (dt, entry) in enumerate(dated):
                 link = _normalize_url(getattr(entry, "link", None) or getattr(entry, "id", None))
                 if not link:
                     continue
+                if dt is not None and dt < cutoff:
+                    continue
                 title = (getattr(entry, "title", None) or "").strip() or "(Başlıksız)"
                 summary = _entry_summary(entry)
+                payload: dict[str, Any] = {
+                    "title": title,
+                    "url": link,
+                    "source": source_name,
+                    "published_date": dt.strftime("%Y-%m-%d %H:%M UTC") if dt else "",
+                    "summary": summary,
+                    "_collector_origin": "rss",
+                }
+                feed_candidates.append((dt, idx_in_feed, payload))
 
-                if dt is not None:
-                    if dt >= cutoff:
-                        if link not in seen_urls:
-                            seen_urls.add(link)
-                            items.append(
-                                {
-                                    "title": title,
-                                    "url": link,
-                                    "source": source_name,
-                                    "published_date": dt.strftime("%Y-%m-%d %H:%M UTC"),
-                                    "summary": summary,
-                                    "_collector_origin": "rss",
-                                }
-                            )
-                            added_from_feed += 1
-                    continue
+            # Tarihli öğeler önce (en yeni), sonra tarihsizler (akış sırası: genelde yeniden eskiye)
+            feed_candidates.sort(
+                key=lambda t: (
+                    (1, t[0].timestamp()) if t[0] is not None else (0, -t[1]),
+                ),
+                reverse=True,
+            )
+            capped = feed_candidates[:RSS_MAX_ITEMS_PER_FEED]
 
-            # Tarihi olmayanlar: son N öğe (sıra genelde yeniden eskiye)
-            undated_entries = [e for dt, e in dated if dt is None]
-            for entry in undated_entries[:fallback_limit]:
-                link = _normalize_url(getattr(entry, "link", None) or getattr(entry, "id", None))
+            added_from_feed = 0
+            for _dt, _idx, payload in capped:
+                link = str(payload.get("url") or "").strip()
                 if not link or link in seen_urls:
                     continue
                 seen_urls.add(link)
-                title = (getattr(entry, "title", None) or "").strip() or "(Başlıksız)"
-                summary = _entry_summary(entry)
-                items.append(
-                    {
-                        "title": title,
-                        "url": link,
-                        "source": source_name,
-                        "published_date": "",
-                        "summary": summary,
-                        "_collector_origin": "rss",
-                    }
-                )
+                items.append(payload)
                 added_from_feed += 1
 
             logger.info(
-                "RSS tamamlandı: kaynak=%s, bu akıştan eklenen=%s",
+                "RSS tamamlandı: kaynak=%s, aday=%s, akış sonrası üst sınır=%s, bu akıştan eklenen=%s",
                 source_name,
+                len(feed_candidates),
+                RSS_MAX_ITEMS_PER_FEED,
                 added_from_feed,
             )
         except Exception as exc:
@@ -269,6 +265,6 @@ def collect_all(tavily_api_key: str) -> list[dict[str, Any]]:
     RSS + Tavily toplama ana giriş noktası.
     """
     logger.info("İçerik toplama başlıyor (RSS + Tavily).")
-    rss = collect_from_rss(hours=24, fallback_limit=5)
+    rss = collect_from_rss(hours=24)
     tavily = collect_from_tavily(tavily_api_key)
     return merge_and_dedupe(rss, tavily)
