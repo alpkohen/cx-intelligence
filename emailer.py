@@ -244,6 +244,7 @@ def build_html_email(
     items: list[dict[str, Any]],
     report_date: str,
     linkedin_suggestions: list[dict[str, Any]] | None = None,
+    audio_url: str | None = None,
 ) -> str:
     origin_counts = Counter(
         (it.get("_collector_origin") or "unknown").lower() for it in items
@@ -331,6 +332,31 @@ def build_html_email(
     summary_html = build_summary_section(items)
     linkedin_html = build_linkedin_section(linkedin_suggestions or [])
 
+    audio_html = ""
+    if audio_url:
+        safe_audio = _escape_html(audio_url)
+        audio_html = f"""
+<tr>
+  <td style="padding:12px 0 0 0;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
+           style="background:#111111;border-radius:6px;padding:16px 22px;">
+      <tr>
+        <td>
+          <p style="margin:0;font-size:12px;color:#c9a84c;font-weight:700;
+                    font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">
+            🎧 Bugünün sesli özeti
+          </p>
+          <a href="{safe_audio}" style="display:inline-block;margin-top:8px;
+             font-size:13px;color:#ffffff;text-decoration:none;
+             font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">
+            ▶ Dinle (~3 dk) →
+          </a>
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>"""
+
     html = f"""<!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -355,6 +381,7 @@ def build_html_email(
           </tr>
 
           {summary_html}
+{audio_html}
 
           <!-- CARDS -->
           <tr>

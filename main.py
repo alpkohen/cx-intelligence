@@ -8,6 +8,8 @@ Adımlar:
 4) Minimum skor ve üst limit filtreleri
 5) Sıralama
 6) Üst limit kırpma
+6b) Yüksek skorlu makale zenginleştirme (summarizer)
+6c) Sesli özet + Netlify yükleme
 7) LinkedIn post adayı tespiti
 8) HTML e-posta oluşturma ve Resend ile gönderim
 9) Gönderilenleri Sheets'e işleme
@@ -19,16 +21,19 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from datetime import datetime
+from datetime import date, datetime
 
 from dotenv import load_dotenv
 
+from audio import generate_audio, generate_briefing_script
 from collector import collect_all
 from config import CLAUDE_MODEL, MAX_TIER2_ITEMS, MAX_TIER3_ITEMS, MIN_SCORE_TO_SEND
 from emailer import build_html_email, format_subject, send_daily_email
 from linkedin import suggest_linkedin_posts
+from netlify_upload import upload_audio
 from scorer import score_items
 from sheets import get_sent_count, load_sent_url_set, mark_as_sent
+from summarizer import enrich_high_score_items
 
 
 def _linkedin_enabled() -> bool:
@@ -141,6 +146,9 @@ def main() -> int:
         len(selected),
     )
 
+    log.info("Adım 6b: Yüksek skorlu makaleler zenginleştiriliyor...")
+    selected = enrich_high_score_items(selected, anthropic_key)
+
     if not selected:
         log.warning(
             "Gönderilecek uygun içerik bulunamadı (hepsi düşük puanlı olabilir)."
@@ -168,10 +176,23 @@ def main() -> int:
             "LinkedIn bölümü kapalı (LINKEDIN_ENABLED ile açılır); Claude çağrısı yapılmayacak."
         )
 
+    audio_url = None
+    try:
+        log.info("Adım 6c: Sesli özet üretiliyor...")
+        script = generate_briefing_script(selected, anthropic_key)
+        mp3_bytes = generate_audio(script)
+        if mp3_bytes:
+            audio_url = upload_audio(mp3_bytes, date.today().strftime("%Y-%m-%d"))
+            if audio_url:
+                log.info("Ses yüklendi: %s", audio_url)
+    except Exception:
+        log.exception("Ses üretimi başarısız; devam ediliyor.")
+
     html_body = build_html_email(
         selected,
         report_date=today_tr,
         linkedin_suggestions=linkedin_suggestions,
+        audio_url=audio_url,
     )
     subject = format_subject(len(selected), date_label=today_tr)
 
