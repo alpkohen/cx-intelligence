@@ -83,6 +83,124 @@ def _escape_html(text: str) -> str:
     )
 
 
+def build_summary_section(items: list[dict[str, Any]]) -> str:
+    """E-postanın başına eklenen özet kutu: tier sayıları + mutlaka okunacaklar listesi."""
+    if not items:
+        return ""
+
+    tier1_items = [it for it in items if int(it.get("score") or 0) >= 9]
+    tier2_count = sum(1 for it in items if 7 <= int(it.get("score") or 0) <= 8)
+    tier3_count = sum(1 for it in items if 5 <= int(it.get("score") or 0) <= 6)
+    total = len(items)
+    avg_score = sum(int(it.get("score") or 0) for it in items) / total if total else 0
+
+    must_read_rows = ""
+    for it in tier1_items:
+        title = _escape_html(it.get("title") or "")
+        url = _escape_html(it.get("url") or "#")
+        source = _escape_html(it.get("source") or "")
+        score = int(it.get("score") or 0)
+        must_read_rows += f"""
+<tr>
+  <td style="padding:7px 0;border-bottom:1px solid #f8f6f2;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+      <tr>
+        <td style="width:28px;vertical-align:middle;">
+          <span style="display:inline-block;background:#111111;color:#c9a84c;
+                       font-size:9px;font-weight:700;padding:2px 5px;border-radius:2px;
+                       font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{score}</span>
+        </td>
+        <td style="vertical-align:middle;padding:0 8px;">
+          <a href="{url}" style="font-size:13px;color:#111111;text-decoration:none;
+                                  font-weight:500;line-height:1.4;
+                                  font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;"
+             target="_blank" rel="noopener noreferrer">{title}</a>
+          <span style="font-size:11px;color:#aaaaaa;margin-left:6px;
+                       font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{source}</span>
+        </td>
+        <td style="width:44px;text-align:right;vertical-align:middle;white-space:nowrap;">
+          <a href="{url}" style="font-size:11px;color:#c9a84c;text-decoration:none;
+                                  font-weight:600;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;"
+             target="_blank" rel="noopener noreferrer">oku &rarr;</a>
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>"""
+
+    must_read_block = ""
+    if must_read_rows:
+        must_read_block = f"""
+      <tr>
+        <td style="padding:0 22px 16px 22px;">
+          <div style="height:1px;background:#f0ede6;margin-bottom:14px;"></div>
+          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;letter-spacing:0.1em;
+                    text-transform:uppercase;color:#bbbbbb;
+                    font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Mutlaka Okunacaklar</p>
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+            {must_read_rows}
+          </table>
+        </td>
+      </tr>"""
+
+    return f"""
+<tr>
+  <td style="padding:16px 0 0 0;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
+           style="background:#ffffff;border-radius:6px;border:1px solid #e8e5df;border-collapse:collapse;">
+      <tr>
+        <td style="padding:16px 22px 12px 22px;border-bottom:1px solid #f0ede6;">
+          <p style="margin:0;font-size:10px;font-weight:700;letter-spacing:0.14em;
+                    text-transform:uppercase;color:#c9a84c;
+                    font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Bugünün Özeti</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:14px 22px 14px 22px;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+            <tr>
+              <td align="center" style="border-right:1px solid #f0ede6;">
+                <p style="margin:0;font-size:22px;font-weight:700;color:#c9a84c;
+                           font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{len(tier1_items)}</p>
+                <p style="margin:3px 0 0 0;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;
+                           color:#aaaaaa;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Mutlaka Oku</p>
+                <p style="margin:1px 0 0 0;font-size:10px;color:#cccccc;
+                           font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">9–10 puan</p>
+              </td>
+              <td align="center" style="border-right:1px solid #f0ede6;">
+                <p style="margin:0;font-size:22px;font-weight:700;color:#e07b4a;
+                           font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{tier2_count}</p>
+                <p style="margin:3px 0 0 0;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;
+                           color:#aaaaaa;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Önemli</p>
+                <p style="margin:1px 0 0 0;font-size:10px;color:#cccccc;
+                           font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">7–8 puan</p>
+              </td>
+              <td align="center" style="border-right:1px solid #f0ede6;">
+                <p style="margin:0;font-size:22px;font-weight:700;color:#94a3b8;
+                           font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{tier3_count}</p>
+                <p style="margin:3px 0 0 0;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;
+                           color:#aaaaaa;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Gündem</p>
+                <p style="margin:1px 0 0 0;font-size:10px;color:#cccccc;
+                           font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">5–6 puan</p>
+              </td>
+              <td align="center">
+                <p style="margin:0;font-size:22px;font-weight:700;color:#111111;
+                           font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{avg_score:.1f}</p>
+                <p style="margin:3px 0 0 0;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;
+                           color:#aaaaaa;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{total} İçerik</p>
+                <p style="margin:1px 0 0 0;font-size:10px;color:#cccccc;
+                           font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">&nbsp;</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      {must_read_block}
+    </table>
+  </td>
+</tr>"""
+
+
 def build_linkedin_section(suggestions: list[dict[str, Any]]) -> str:
     """LinkedIn öneri kartlarını HTML olarak üretir. E-postanın sonuna eklenir."""
     if not suggestions:
@@ -261,6 +379,7 @@ def build_html_email(
 
     body_inner = "\n".join(cards_html)
 
+    summary_html = build_summary_section(items)
     linkedin_html = build_linkedin_section(linkedin_suggestions or [])
 
     html = f"""<!DOCTYPE html>
@@ -285,6 +404,8 @@ def build_html_email(
               <div style="margin-top:20px;height:1px;background:linear-gradient(90deg,#c9a84c 0%,#c9a84c 40%,transparent 100%);"></div>
             </td>
           </tr>
+
+          {summary_html}
 
           <!-- CARDS -->
           <tr>

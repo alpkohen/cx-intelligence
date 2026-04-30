@@ -9,8 +9,12 @@ RSS_MAX_ITEMS_PER_FEED = 3
 # Bu puanın altındaki içerikler e-postaya dahil edilmez
 MIN_SCORE_TO_SEND = 5
 
-# Günlük özetde en fazla kaç içerik gösterilecek
-MAX_ITEMS_PER_EMAIL = 15
+# Katmanlı içerik seçimi:
+# 9-10 puan alanlar her zaman dahil (sınırsız)
+# 7-8 puan: en fazla bu kadar
+MAX_TIER2_ITEMS = 10
+# 5-6 puan: en fazla bu kadar
+MAX_TIER3_ITEMS = 5
 
 # RSS kaynakları.
 # Not: IDC Gartner vb. tam raporlar çoğu zaman ücret kapısı arkasındadır; günlükte genelde kamuya

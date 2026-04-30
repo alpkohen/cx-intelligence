@@ -24,7 +24,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 
 from collector import collect_all
-from config import CLAUDE_MODEL, MAX_ITEMS_PER_EMAIL, MIN_SCORE_TO_SEND
+from config import CLAUDE_MODEL, MAX_TIER2_ITEMS, MAX_TIER3_ITEMS, MIN_SCORE_TO_SEND
 from emailer import build_html_email, format_subject, send_daily_email
 from linkedin import suggest_linkedin_posts
 from scorer import score_items
@@ -117,12 +117,23 @@ def main() -> int:
     log.info("Adım 5/9: İçerikler puana göre yüksekten düşüğe sıralanıyor.")
     passed.sort(key=lambda z: int(z.get("score") or 0), reverse=True)
 
-    # --- 6. Üst limit ---
+    # --- 6. Katmanlı seçim ---
     log.info(
-        "Adım 6/9: En fazla %s içerik seçiliyor (MAX_ITEMS_PER_EMAIL).",
-        MAX_ITEMS_PER_EMAIL,
+        "Adım 6/9: Katmanlı içerik seçimi — Tier1(9-10): sınırsız, Tier2(7-8): max %s, Tier3(5-6): max %s.",
+        MAX_TIER2_ITEMS,
+        MAX_TIER3_ITEMS,
     )
-    selected = passed[:MAX_ITEMS_PER_EMAIL]
+    tier1 = [it for it in passed if int(it.get("score") or 0) >= 9]
+    tier2 = [it for it in passed if 7 <= int(it.get("score") or 0) <= 8][:MAX_TIER2_ITEMS]
+    tier3 = [it for it in passed if 5 <= int(it.get("score") or 0) <= 6][:MAX_TIER3_ITEMS]
+    selected = tier1 + tier2 + tier3
+    log.info(
+        "Katman dağılımı: Tier1=%s, Tier2=%s, Tier3=%s, toplam=%s",
+        len(tier1),
+        len(tier2),
+        len(tier3),
+        len(selected),
+    )
 
     if not selected:
         log.warning(
