@@ -337,20 +337,31 @@ def build_html_email(
         safe_audio = _escape_html(audio_url)
         audio_html = f"""
 <tr>
-  <td style="padding:12px 0 0 0;">
+  <td style="padding:8px 0 0 0;">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
-           style="background:#111111;border-radius:6px;padding:16px 22px;">
+           style="background:#1a1a1a;border-left:3px solid #c9a84c;border-collapse:collapse;">
       <tr>
-        <td>
-          <p style="margin:0;font-size:12px;color:#c9a84c;font-weight:700;
-                    font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">
-            🎧 Bugünün sesli özeti
-          </p>
-          <a href="{safe_audio}" style="display:inline-block;margin-top:8px;
-             font-size:13px;color:#ffffff;text-decoration:none;
-             font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">
-            ▶ Dinle (~3 dk) →
-          </a>
+        <td style="padding:16px 24px;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+            <tr>
+              <td width="40" style="vertical-align:middle;padding-right:14px;">
+                <div style="width:40px;height:40px;border-radius:20px;background:#c9a84c;text-align:center;line-height:40px;font-size:16px;">&#9654;</div>
+              </td>
+              <td style="vertical-align:middle;">
+                <p style="margin:0 0 2px;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#c9a84c;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Sesli Özet</p>
+                <a href="{safe_audio}" style="font-size:13px;color:#888888;text-decoration:none;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Bugünün bülteni &nbsp;·&nbsp; dinle &rarr;</a>
+              </td>
+              <td align="right" style="vertical-align:middle;">
+                <table cellspacing="0" cellpadding="0"><tr>
+                  <td style="width:3px;height:8px;background:#c9a84c;border-radius:2px;opacity:0.4;padding:0 1px;vertical-align:bottom;"></td>
+                  <td style="width:3px;height:14px;background:#c9a84c;border-radius:2px;padding:0 1px;vertical-align:bottom;"></td>
+                  <td style="width:3px;height:20px;background:#c9a84c;border-radius:2px;padding:0 1px;vertical-align:bottom;"></td>
+                  <td style="width:3px;height:12px;background:#c9a84c;border-radius:2px;opacity:0.7;padding:0 1px;vertical-align:bottom;"></td>
+                  <td style="width:3px;height:16px;background:#c9a84c;border-radius:2px;opacity:0.8;padding:0 1px;vertical-align:bottom;"></td>
+                </tr></table>
+              </td>
+            </tr>
+          </table>
         </td>
       </tr>
     </table>
@@ -374,14 +385,14 @@ def build_html_email(
           <tr>
             <td style="background:#111111;padding:28px 32px 24px 32px;border-radius:0;">
               <p style="margin:0 0 8px 0;font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#c9a84c;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Günlük Bülten</p>
-              <h1 style="margin:0 0 6px 0;font-size:24px;font-weight:700;color:#ffffff;letter-spacing:-0.3px;line-height:1.2;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">CX &amp; Çağrı Merkezi Intelligence</h1>
+              <h1 style="margin:0 0 6px 0;font-size:24px;font-weight:700;color:#ffffff;letter-spacing:-0.3px;line-height:1.2;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">CX Intelligence Daily</h1>
               <p style="margin:0;font-size:13px;color:#777777;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{ _escape_html(report_date) } &nbsp;·&nbsp; {len(items)} içerik seçildi</p>
               <div style="margin-top:20px;height:1px;background:linear-gradient(90deg,#c9a84c 0%,#c9a84c 40%,transparent 100%);"></div>
             </td>
           </tr>
 
-          {summary_html}
 {audio_html}
+          {summary_html}
 
           <!-- CARDS -->
           <tr>
