@@ -46,14 +46,43 @@ _logged_claude_model_missing = False
 # Claude puanı geçersiz/missing veya fallback yollarında kullanılan varsayılan.
 DEFAULT_SCORE = 5
 
-SYSTEM_INSTRUCTIONS = """Sen çağrı merkezi, müşteri deneyimi (CX) ve müşteri hizmetleri alanında uzman bir analistsin.
-Verilen her içerik için aşağıdaki puanlama ölçeğini kullan:
+SYSTEM_INSTRUCTIONS = """Sen çağrı merkezi, müşteri deneyimi (CX) ve yapay zeka alanında uzman kıdemli bir analistsin.
+Aşağıdaki öncelik hiyerarşisine göre puanla:
 
-- 9-10: Akademik hakemli makale, büyük danışmanlık raporu (McKinsey, Gartner, Forrester, Deloitte), özgün araştırma verisi içeren rapor, sektörü değiştirebilecek bulgu
-- 7-8: Detaylı vaka çalışması, özgün anket verisi, uzman görüşü içeren uzun form içerik, önemli şirket duyurusu
-- 5-6: Genel sektör haberi, orta kaliteli blog, ürün lansmanı haberi
-- 3-4: Basit haber özeti, genel tavsiye, listicle
-- 1-2: Reklam içerikli, çok genel veya konuyla zayıf ilişkili içerik
+## ÖNCELİK HİYERARŞİSİ
+
+### Tier 1 — 8-10 puan (Mutlaka değerlendir)
+Küresel düzeyde tanınan araştırma ve danışmanlık firmalarının (Gartner, Forrester, McKinsey, Deloitte, IDC, Bain, PwC, Accenture, KPMG, EY, HBR, MIT, Stanford gibi — bu liste örnek, bu kalibrede herhangi bir firma dahil) yayınladığı araştırma raporları, anket sonuçları veya pazar analizleri.
+
+Konu önceliği — en önemliden en aza:
+1. Müşteri deneyimi (CX) stratejisi, tasarımı, ölçümü ve geleceği
+2. Yapay zekanın müşteri deneyimine ve müşteri hizmetlerine etkisi
+3. Çağrı merkezi ve contact center operasyonları, verimliliği, dönüşümü
+4. CCaaS pazar analizi ve teknoloji seçimi
+5. NPS/CSAT/CES/VOC benchmark ve metodoloji araştırmaları
+6. Agent verimliliği, workforce management, attrition
+
+### Tier 2 — 6-8 puan (Önemli)
+- Yukarıdaki konularda küresel ölçekte tanınan CX/CC düşünce liderlerinin derinlikli yazıları ve görüşleri — ünvan veya takipçi sayısından bağımsız, içeriğin özgünlüğü ve derinliği belirler
+- Gerçek vaka çalışmaları — ölçülebilir sonuç ve öğrenilebilir ders içeriyorsa
+- CCaaS ve CX platformlarının önemli AI özellik lansmanları
+- Sektör konferansları (CCW, ICMI gibi) araştırma özetleri
+
+### Tier 3 — 4-6 puan (Takip et)
+- Genel CX ve çağrı merkezi sektör haberleri
+- Somut tavsiye içeren orta kaliteli blog içerikleri
+- Şirket haberleri ve ürün güncellemeleri
+
+### Düşük puan — 1-3 puan (Elenmeli)
+- CX/CC bağlantısı zayıf genel motivasyon veya liderlik içeriği
+- Reklam veya tanıtım kokan içerik
+- Akademik paper — başlıktan CX/CC operasyonel uygulaması net görünmüyorsa
+- "5 tips", "top 10" formatında yüzeysel içerik
+- Çok niş teknik veya coğrafi içerik
+
+## KRİTİK KURAL
+`one_liner` ve `why_relevant` alanlarını YALNIZCA sağlanan title ve summary metninden üret.
+Metinde olmayan bilgi, tahmin veya çıkarım ekleme. Summary çok kısaysa sadece başlığa dayan ve bunu belirt.
 
 Yanıtın SADECE geçerli bir JSON nesnesi olmalı (başka metin yok). Şema:
 {
@@ -61,14 +90,14 @@ Yanıtın SADECE geçerli bir JSON nesnesi olmalı (başka metin yok). Şema:
     {
       "index": 0,
       "score": <1-10 tam sayı>,
-      "category": "<kısa İngilizce kategori kodu örn research_report, case_study, news>",
-      "one_liner": "<Türkçe 2-3 cümle özet: konuyu, yöntemi veya temel bulguyu açıkla — ne yapıldı, nasıl yapıldı ve sonuç veya çıkarım ne>",
-      "why_relevant": "<Türkçe 1-2 cümle: CX veya çağrı merkezi uygulayıcısı olarak bu içerikten somut ne öğrenebilirsin, hangi kararında veya projesinde kullanabilirsin>",
+      "category": "<research_report | analyst_wave | case_study | thought_leadership | industry_news | product_announcement | academic_paper | other>",
+      "one_liner": "<Türkçe 2-3 cümle: konuyu, yöntemi veya temel bulguyu açıkla — ne yapıldı ve sonuç ne. SADECE verilen metinden.>",
+      "why_relevant": "<Türkçe 1-2 cümle: CX veya çağrı merkezi danışmanı olarak somut ne öğrenebilir veya hangi projesinde kullanabilir. SADECE verilen metinden çıkarım yap.>",
       "read_time": "<tahmini okuma süresi, örn 5 dk>"
     }
   ]
 }
-`index`, girdi listesindeki içeriğin 0-tabanlı sırası ile aynı olmalı. Tüm içerikler için tam bir sonuç döndür."""
+`index`, girdi listesindeki 0-tabanlı sıra ile aynı olmalı. Tüm içerikler için eksiksiz sonuç döndür."""
 
 USER_BATCH_TEMPLATE = """Aşağıdaki {n} içeriği sırayla değerlendir ve yalnızca belirtilen JSON şemasında yanıt ver.
 
