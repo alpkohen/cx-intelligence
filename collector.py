@@ -6,6 +6,7 @@ Son 24 saat filtresi; her RSS akışı için en fazla RSS_MAX_ITEMS_PER_FEED ö�
 from __future__ import annotations
 
 import logging
+import socket
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import urlparse
@@ -13,7 +14,7 @@ from urllib.parse import urlparse
 import feedparser
 from tavily import TavilyClient
 
-from config import RSS_FEEDS, TAVILY_QUERIES
+from config import RSS_FEEDS, RSS_MAX_ITEMS_PER_FEED, TAVILY_QUERIES
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +25,6 @@ _FEED_REQUEST_HEADERS = {
 
 # Tavily sonuçları için kaynak etiketi
 TAVILY_SOURCE_LABEL = "Tavily"
-
-# Akış başına en fazla kaç öğe (yenideneskige); tek kaynakların (örn. arXiv) listeyi doldurmasını engeller.
-RSS_MAX_ITEMS_PER_FEED = 3
 
 
 def _normalize_url(url: str | None) -> str | None:
@@ -88,7 +86,12 @@ def collect_from_rss(hours: int = 24) -> list[dict[str, Any]]:
     for feed_url in RSS_FEEDS:
         source_name = _feed_domain(feed_url)
         try:
-            parsed = feedparser.parse(feed_url, request_headers=_FEED_REQUEST_HEADERS)
+            try:
+                old_timeout = socket.getdefaulttimeout()
+                socket.setdefaulttimeout(10)
+                parsed = feedparser.parse(feed_url, request_headers=_FEED_REQUEST_HEADERS)
+            finally:
+                socket.setdefaulttimeout(old_timeout)
             if getattr(parsed, "bozo", False) and not getattr(parsed, "entries", None):
                 logger.warning(
                     "RSS parse uyarısı (devam ediliyor): %s — %s",
@@ -190,7 +193,7 @@ def collect_from_tavily(api_key: str, max_results_per_query: int = 8) -> list[di
                 include = True
                 if not pub_raw:
                     published_date = ""
-                    include = True
+                    include = True  # Tavily tarihsiz sonuçlar Sheets de-dup ile kontrol edilir
                 elif pub_raw:
                     try:
                         # Tavily ISO formatları için basit parse
@@ -205,6 +208,7 @@ def collect_from_tavily(api_key: str, max_results_per_query: int = 8) -> list[di
                             dt_naive = dt
                         published_date = dt_naive.strftime("%Y-%m-%d %H:%M UTC")
                         include = dt_naive >= cutoff
+                        # Gönderilmiş URL mükerrer kontrolü Google Sheets adımında yapılır
                     except (ValueError, TypeError):
                         published_date = str(pub_raw)[:64]
                         include = True
@@ -213,6 +217,11 @@ def collect_from_tavily(api_key: str, max_results_per_query: int = 8) -> list[di
                     continue
 
                 seen_urls.add(url)
+                logger.debug(
+                    "Tavily sonuç eklendi: url=%s, tarih=%s",
+                    url[:80],
+                    published_date or "tarihi yok",
+                )
                 items.append(
                     {
                         "title": title,

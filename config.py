@@ -3,26 +3,8 @@ CX Intelligence - merkezi yapılandırma.
 Tüm sabitler ve RSS/Tavily konfigürasyonu buradan yönetilir.
 """
 
-# CX / çağrı merkezi odaklı arama başlıkları (ileride Tavily/embeddings ile kullanılabilir)
-TOPICS = [
-    "call center",
-    "contact center",
-    "customer experience",
-    "CX",
-    "customer service",
-    "müşteri deneyimi",
-    "çağrı merkezi",
-    "customer success",
-    "NPS",
-    "CSAT",
-    "voc voice of customer",
-    "customer journey",
-    "CCaaS",
-    "contact center AI",
-    "workforce management WFM",
-    "customer churn retention",
-    "CX analytics VOC",
-]
+# Her RSS kaynağından alınacak maksimum içerik sayısı (tek kaynağın listeyi doldurmasını önler)
+RSS_MAX_ITEMS_PER_FEED = 3
 
 # Bu puanın altındaki içerikler e-postaya dahil edilmez
 MIN_SCORE_TO_SEND = 5
@@ -135,3 +117,6 @@ CLAUDE_MODEL = "claude-haiku-4-5-20251001"
 
 # Puanlama için tek istekte işlenecek içerik sayısı
 SCORER_BATCH_SIZE = 8
+
+# LinkedIn e-posta bölümündeki copy-paste etiketi
+LINKEDIN_SECTION_LABEL = "Alp LinkedIn projesine kopyala-yapıştır ile işle"

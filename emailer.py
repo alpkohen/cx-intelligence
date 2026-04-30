@@ -13,6 +13,8 @@ from typing import Any
 
 import resend
 
+from config import LINKEDIN_SECTION_LABEL
+
 logger = logging.getLogger(__name__)
 
 # Resend, gönderen olarak yalnızca doğrulanmış domain'e izin verir; ücretsiz posta kutuları doğrulanamaz.
@@ -146,7 +148,7 @@ def build_linkedin_section(suggestions: list[dict[str, Any]]) -> str:
   </tr>
 </table>""")
 
-    section_header = """
+    section_header = f"""
 <tr>
   <td style="padding:24px 0 12px 0;">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
@@ -159,7 +161,7 @@ def build_linkedin_section(suggestions: list[dict[str, Any]]) -> str:
           </p>
           <p style="margin:4px 0 0 0;font-size:12px;color:#aaaaaa;
                     font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">
-            Alp LinkedIn projesine kopyala-yapıştır ile işle
+            {LINKEDIN_SECTION_LABEL}
           </p>
         </td>
       </tr>

@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 from pathlib import Path
 from typing import Any
 
@@ -72,6 +73,28 @@ def _extract_json(text: str) -> dict[str, Any]:
     return json.loads(raw)
 
 
+def _call_with_retry(fn, *, retries: int = 3, base_delay: float = 5.0):
+    """Exponential backoff ile API çağrısını yeniden dener."""
+    last_exc = None
+    for attempt in range(retries):
+        try:
+            return fn()
+        except Exception as exc:
+            last_exc = exc
+            if attempt < retries - 1:
+                wait = base_delay * (2**attempt)
+                logger.warning(
+                    "LinkedIn API çağrısı başarısız (deneme %s/%s): %s — %.0fs sonra yeniden denenecek.",
+                    attempt + 1,
+                    retries,
+                    exc,
+                    wait,
+                )
+                time.sleep(wait)
+    assert last_exc is not None
+    raise last_exc
+
+
 def suggest_linkedin_posts(
     scored_items: list[dict[str, Any]],
     anthropic_api_key: str,
@@ -116,11 +139,13 @@ def suggest_linkedin_posts(
 
     try:
         client = anthropic.Anthropic(api_key=anthropic_api_key.strip())
-        msg = client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=1500,
-            system=_SYSTEM,
-            messages=[{"role": "user", "content": user_content}],
+        msg = _call_with_retry(
+            lambda: client.messages.create(
+                model=CLAUDE_MODEL,
+                max_tokens=1500,
+                system=_SYSTEM,
+                messages=[{"role": "user", "content": user_content}],
+            )
         )
         text = "".join(
             block.text for block in (msg.content or [])

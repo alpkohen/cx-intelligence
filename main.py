@@ -6,9 +6,12 @@ Adımlar:
 2) Google Sheets üzerinden mükerrer URL elemesi
 3) Claude ile toplu puanlama
 4) Minimum skor ve üst limit filtreleri
-5) HTML e-posta gönderimi (Resend)
-6) Gönderilenleri Sheets'e işleme
-7) Özet istatistik günlüğü
+5) Sıralama
+6) Üst limit kırpma
+7) LinkedIn post adayı tespiti
+8) HTML e-posta oluşturma ve Resend ile gönderim
+9) Gönderilenleri Sheets'e işleme
+10) Özet istatistik günlüğü
 """
 
 from __future__ import annotations
