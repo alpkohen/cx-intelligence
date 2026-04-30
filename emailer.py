@@ -300,8 +300,7 @@ def build_html_email(
             if ks_raw:
                 ks_esc = _escape_html(ks_raw)
                 enrich_block = f"""
-          <p style="margin:0 0 4px 0;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#bbbbbb;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">KRİTİK BULGU</p>
-          <p style="margin:0 0 12px 0;font-size:13px;color:#c9a84c;line-height:1.5;font-style:italic;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{ks_esc}</p>
+          <p style="margin:0 0 12px 0;font-size:13px;color:#c9a84c;font-style:italic;line-height:1.5;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">KRİTİK BULGU<br>{ks_esc}</p>
 """
 
         cards_html.append(f"""
@@ -361,18 +360,38 @@ def build_html_email(
     if audio_url:
         safe_audio = _escape_html(audio_url)
         audio_meta_esc = _escape_html(_audio_meta_line(items))
+        play_svg = (
+            '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="14" '
+            'viewBox="0 0 24 24" aria-hidden="true" style="display:block;">'
+            '<path fill="#111111" d="M8 5v14l11-7z"/></svg>'
+        )
         audio_html = f"""
 <tr>
   <td style="padding:8px 0 0 0;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
-           style="background:#1a1a1a;border-left:3px solid #c9a84c;border-collapse:collapse;">
-      <tr>
-        <td style="padding:16px 24px;">
-          <a href="{safe_audio}" style="font-size:13px;color:#888888;text-decoration:none;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Sesli Özet — dinle &rarr;</a>
-          <p style="margin:5px 0 0 0;font-size:11px;color:#555555;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{audio_meta_esc}</p>
-        </td>
-      </tr>
-    </table>
+    <a href="{safe_audio}" style="display:block;text-decoration:none;color:inherit;background:#1a1a1a;border-left:3px solid #c9a84c;padding:14px 24px;-webkit-font-smoothing:antialiased;">
+      <div style="display:flex;flex-direction:row;align-items:center;width:100%;">
+        <div style="flex-shrink:0;width:36px;height:36px;border-radius:18px;background:#c9a84c;display:flex;align-items:center;justify-content:center;margin-right:16px;">
+          {play_svg}
+        </div>
+        <div style="flex:1 1 auto;min-width:0;margin-right:12px;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">
+          <p style="margin:0 0 2px;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#c9a84c;line-height:1.2;">SESLİ ÖZET</p>
+          <p style="margin:0 0 4px;font-size:13px;color:#888888;line-height:1.35;">Bugünün bülteni &nbsp;·&nbsp; dinle &rarr;</p>
+          <p style="margin:0;font-size:11px;color:#555555;line-height:1.4;">{audio_meta_esc}</p>
+        </div>
+        <div style="flex-shrink:0;align-self:stretch;display:flex;align-items:flex-end;">
+          <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0;border-collapse:collapse;">
+            <tr>
+              <td style="width:3px;height:7px;background:#c9a84c;border-radius:2px;opacity:0.35;padding:0 2px 0 0;vertical-align:bottom;"></td>
+              <td style="width:3px;height:15px;background:#c9a84c;border-radius:2px;opacity:0.9;padding:0 2px 0 0;vertical-align:bottom;"></td>
+              <td style="width:3px;height:22px;background:#c9a84c;border-radius:2px;opacity:1;padding:0 2px 0 0;vertical-align:bottom;"></td>
+              <td style="width:3px;height:11px;background:#c9a84c;border-radius:2px;opacity:0.55;padding:0 2px 0 0;vertical-align:bottom;"></td>
+              <td style="width:3px;height:17px;background:#c9a84c;border-radius:2px;opacity:0.75;padding:0 2px 0 0;vertical-align:bottom;"></td>
+              <td style="width:3px;height:13px;background:#c9a84c;border-radius:2px;opacity:0.45;padding:0;vertical-align:bottom;"></td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </a>
   </td>
 </tr>"""
 
@@ -392,9 +411,18 @@ def build_html_email(
           <!-- HEADER -->
           <tr>
             <td style="background:#111111;padding:28px 32px 24px 32px;border-radius:0;">
-              <p style="margin:0 0 8px 0;font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#c9a84c;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Günlük Bülten</p>
-              <h1 style="margin:0 0 6px 0;font-size:24px;font-weight:700;color:#ffffff;letter-spacing:-0.3px;line-height:1.2;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;"><span style="font-size:10px;font-weight:700;letter-spacing:0.15em;color:#c9a84c;font-family:'Courier New',monospace;margin-right:10px;">real&amp;co.</span><span>CX Intelligence Daily</span></h1>
-              <p style="margin:0;font-size:13px;color:#777777;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{ _escape_html(report_date) } &nbsp;·&nbsp; {len(items)} içerik seçildi</p>
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;width:100%;">
+                <div style="flex:1 1 auto;min-width:0;padding-right:16px;">
+                  <p style="margin:0 0 8px 0;font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#c9a84c;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Günlük Bülten</p>
+                  <h1 style="margin:0 0 6px 0;font-size:24px;font-weight:700;color:#ffffff;letter-spacing:-0.3px;line-height:1.2;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">CX Intelligence Daily</h1>
+                  <p style="margin:0;font-size:13px;color:#777777;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{ _escape_html(report_date) } &nbsp;·&nbsp; {len(items)} içerik seçildi</p>
+                </div>
+                <div style="flex-shrink:0;text-align:right;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">
+                  <p style="margin:0 0 8px;font-size:7px;letter-spacing:0.18em;text-transform:uppercase;color:#888888;line-height:1.35;">THE CUSTOMER<br>TRUTH COMPANY</p>
+                  <p style="margin:0;font-size:20px;font-weight:800;color:#ffffff;font-family:Georgia,serif;line-height:1;">real</p>
+                  <p style="margin:0;font-size:20px;font-weight:800;color:#c9a84c;font-family:Georgia,serif;line-height:1;">&amp;co.</p>
+                </div>
+              </div>
               <div style="margin-top:20px;height:1px;background:linear-gradient(90deg,#c9a84c 0%,#c9a84c 40%,transparent 100%);"></div>
             </td>
           </tr>
