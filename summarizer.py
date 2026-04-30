@@ -15,9 +15,10 @@ import anthropic
 from config import CLAUDE_MODEL
 from fetcher import fetch_full_content
 
+from scorer import get_threshold
+
 logger = logging.getLogger(__name__)
 
-MIN_SCORE_FOR_ENRICH = 7
 MIN_CONTENT_CHARS_FOR_CLAUDE = 500
 MAX_CONTENT_CHARS_FOR_MODEL = 12000
 
@@ -125,12 +126,12 @@ def _summarize_with_claude(
 
 def enrich_high_score_items(items: list[dict], anthropic_api_key: str) -> list[dict]:
     """
-    score >= 7 için URL'den tam metin çekilir; yeterince uzunsa Claude ile özetlenir.
+    Makale için eşik: `get_threshold(item)` (standart kaynaklar 7+, T1/T2_weekly ise 6+).
 
     - Tam metin > 500 karakter: deep_summary, key_insight, action_point eklenir.
     - <= 500 veya boş: one_liner/why_relevant korunur, enrich_note='paywall_limited' (kopya üzerinde).
     - Claude / fetch hatası: orijinal item referansı olduğu gibi döner.
-    - score < 7: işlenmeden aynı referans döner.
+    - Eşiğin altı: işlenmeden aynı referans döner.
     """
     key = (anthropic_api_key or "").strip()
     out: list[dict] = []
@@ -141,7 +142,7 @@ def enrich_high_score_items(items: list[dict], anthropic_api_key: str) -> list[d
         except (TypeError, ValueError):
             score = 0
 
-        if score < MIN_SCORE_FOR_ENRICH:
+        if score < get_threshold(item):
             out.append(item)
             continue
 

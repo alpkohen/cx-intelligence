@@ -6,7 +6,8 @@ Tüm sabitler ve RSS/Tavily konfigürasyonu buradan yönetilir.
 # Her RSS kaynağından alınacak maksimum içerik sayısı (tek kaynağın listeyi doldurmasını önler)
 RSS_MAX_ITEMS_PER_FEED = 3
 
-# Bu puanın altındaki içerikler e-postaya dahil edilmez
+# Bu puanın altı katman seçiminde üçüncü kademeye girmezken, günlük akışın ilk filtresinde
+# artık `scorer.get_threshold()` kullanılır (standart: DEFAULT_SCORE_THRESHOLD, T1/T2_weekly: TIER1_SCORE_THRESHOLD).
 MIN_SCORE_TO_SEND = 5
 
 # Katmanlı içerik seçimi:
@@ -115,6 +116,32 @@ TAVILY_QUERIES = [
     "Talkdesk Five9 NICE Verint CCaaS product update release announcement 2026",
     "customer service burnout agent wellbeing attrition contact center workforce",
 ]
+
+# Tier-1 Tavily targeted sources (premium / analyst — günlük collect_all ile eklenir)
+TIER1_TAVILY_QUERIES = [
+    "site:gartner.com CX OR contact center OR customer experience",
+    "site:forrester.com customer experience OR contact center",
+    "site:mckinsey.com customer service OR customer experience",
+    "site:pwc.com customer experience report OR whitepaper",
+    "site:deloitte.com contact center OR customer experience whitepaper",
+    "site:dimensiondata.com CX OR contact center benchmark",
+    "site:cxnetwork.com report OR whitepaper OR research",
+    "site:hbr.org customer experience OR service",
+    "site:accenture.com customer experience report OR whitepaper",
+    "site:capgemini.com customer experience OR contact center research",
+]
+
+# Haftalık derin rapor/beyaz kâğıt sorguları — weekly_deep_scan ile (scheduler Pazartesi)
+WEEKLY_DEEP_QUERIES = [
+    "CX whitepaper 2025",
+    "contact center research report 2025",
+    "customer experience benchmark 2025",
+    "AI customer service whitepaper 2025",
+    "workforce management contact center report 2025",
+]
+
+TIER1_SCORE_THRESHOLD = 6  # T1 ve T2_weekly kaynakları için minimum puan filtresi
+DEFAULT_SCORE_THRESHOLD = 7  # Normal RSS ve standart Tavily içeriği için
 
 # Puanlama için Haiku yeterli ve ~10x daha ucuzdur. Derin analiz gerekirse claude-sonnet-4-6 kullanılabilir.
 CLAUDE_MODEL = "claude-haiku-4-5-20251001"

@@ -27,11 +27,11 @@ from dotenv import load_dotenv
 
 from audio import generate_audio, generate_briefing_script
 from collector import collect_all
-from config import CLAUDE_MODEL, MAX_TIER2_ITEMS, MAX_TIER3_ITEMS, MIN_SCORE_TO_SEND
+from config import CLAUDE_MODEL, MAX_TIER2_ITEMS, MAX_TIER3_ITEMS
 from emailer import build_html_email, format_subject, send_daily_email
 from linkedin import suggest_linkedin_posts
 from netlify_upload import upload_audio
-from scorer import score_items
+from scorer import get_threshold, score_items
 from sheets import get_sent_count, load_sent_url_set, mark_as_sent
 from summarizer import enrich_high_score_items
 
@@ -111,12 +111,12 @@ def main() -> int:
     log.info("Adım 3/9: Claude ile içerikler puanlanıyor.")
     scored = score_items(fresh_items, anthropic_api_key=anthropic_key)
 
-    # --- 4. Minimum skor filtresi ---
+    # --- 4. Kaynak-türüne göre minimum skor (T1/T2_weekly: 6, standart/RSS: 7) ---
     log.info(
-        "Adım 4/9: Minimum skor filtresi uygulanıyor (MIN_SCORE_TO_SEND=%s).",
-        MIN_SCORE_TO_SEND,
+        "Adım 4/9: Kaynak-tier eşikleri uygulanıyor "
+        "(T1/T2_weekly=config.TIER1_SCORE_THRESHOLD, standart=config.DEFAULT_SCORE_THRESHOLD).",
     )
-    passed = [it for it in scored if int(it.get("score") or 0) >= MIN_SCORE_TO_SEND]
+    passed = [it for it in scored if int(it.get("score") or 0) >= get_threshold(it)]
     dropped_low = len(scored) - len(passed)
     log.info(
         "Filtre sonucu: aday=%s, düşük puan nedeniyle elenen=%s",

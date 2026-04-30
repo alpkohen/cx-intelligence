@@ -552,3 +552,14 @@ def format_subject(item_count: int, date_label: str | None = None) -> str:
     if date_label is None:
         date_label = datetime.now().strftime("%d.%m.%Y")
     return f"🧠 CX Intelligence Daily | {date_label} | {item_count} içerik"
+
+
+def format_subject_with_prefix(
+    prefix: str,
+    item_count: int,
+    date_label: str | None = None,
+) -> str:
+    """İsteğe bağlı önek (ör. haftalık tarama konu başlığı)."""
+    core = format_subject(item_count, date_label)
+    stripped = prefix.strip()
+    return f"{stripped} {core}" if stripped else core

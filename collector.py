@@ -14,7 +14,13 @@ from urllib.parse import urlparse
 import feedparser
 from tavily import TavilyClient
 
-from config import RSS_FEEDS, RSS_MAX_ITEMS_PER_FEED, TAVILY_QUERIES
+from config import (
+    RSS_FEEDS,
+    RSS_MAX_ITEMS_PER_FEED,
+    TAVILY_QUERIES,
+    TIER1_TAVILY_QUERIES,
+    WEEKLY_DEEP_QUERIES,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -156,9 +162,152 @@ def collect_from_rss(hours: int = 24) -> list[dict[str, Any]]:
     return items
 
 
-def collect_from_tavily(api_key: str, max_results_per_query: int = 8) -> list[dict[str, Any]]:
+def _gather_from_tavily_queries(
+    client: TavilyClient,
+    *,
+    queries: list[str],
+    max_results_per_query: int,
+    source_tier_label: str,
+    include_raw_content: bool | None = None,
+    log_prefix: str = "",
+) -> list[dict[str, Any]]:
+    """
+    Ortak Tavily arama döngüsü — son 24 saat filtresi, URL normalize, çıktı yapısı collect_from_tavily ile aynı.
+    """
+    seen_urls: set[str] = set()
+    items: list[dict[str, Any]] = []
+    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=24)
+
+    for query in queries:
+        try:
+            search_kw: dict[str, Any] = {
+                "query": query,
+                "search_depth": "advanced",
+                "max_results": max_results_per_query,
+            }
+            if include_raw_content is not None:
+                search_kw["include_raw_content"] = include_raw_content
+
+            response = client.search(**search_kw)
+            results = response.get("results") if isinstance(response, dict) else getattr(response, "results", None)
+            results = results or []
+            added = 0
+
+            for r in results:
+                url = _normalize_url(r.get("url") if isinstance(r, dict) else getattr(r, "url", None))
+                if not url or url in seen_urls:
+                    continue
+                title = (
+                    ((r.get("title") if isinstance(r, dict) else getattr(r, "title", "")) or "")
+                    .strip()
+                    or "(Başlıksız)"
+                )
+                raw_summary = (
+                    (r.get("content") if isinstance(r, dict) else getattr(r, "content", None))
+                    or (r.get("raw_content") if isinstance(r, dict) else getattr(r, "raw_content", None))
+                    or ""
+                ).strip()
+
+                pub_raw = r.get("published_date") if isinstance(r, dict) else getattr(r, "published_date", None)
+
+                published_date = ""
+                include_item = True
+                if not pub_raw:
+                    published_date = ""
+                    include_item = True
+                elif pub_raw:
+                    try:
+                        if "T" in str(pub_raw):
+                            dt_parse = datetime.fromisoformat(str(pub_raw).replace("Z", "+00:00"))
+                        else:
+                            dt_parse = datetime.strptime(str(pub_raw)[:10], "%Y-%m-%d")
+                            dt_parse = dt_parse.replace(tzinfo=timezone.utc)
+                        if dt_parse.tzinfo:
+                            dt_naive = dt_parse.astimezone(timezone.utc).replace(tzinfo=None)
+                        else:
+                            dt_naive = dt_parse
+                        published_date = dt_naive.strftime("%Y-%m-%d %H:%M UTC")
+                        include_item = dt_naive >= cutoff
+                    except (ValueError, TypeError):
+                        published_date = str(pub_raw)[:64]
+                        include_item = True
+
+                if not include_item:
+                    continue
+
+                seen_urls.add(url)
+                src_meta = (
+                    (r.get("source") if isinstance(r, dict) else getattr(r, "source", None)) or TAVILY_SOURCE_LABEL
+                )
+                items.append(
+                    {
+                        "title": title,
+                        "url": url,
+                        "source": src_meta,
+                        "published_date": published_date,
+                        "summary": raw_summary[:2000] if raw_summary else "",
+                        "_collector_origin": "tavily",
+                        "source_tier": source_tier_label,
+                    }
+                )
+                added += 1
+
+            lp = (log_prefix + " ") if log_prefix else ""
+            logger.info(
+                "%sTavily tamamlandı: sorgu=%r, eklenen=%s",
+                lp,
+                query[:80],
+                added,
+            )
+        except Exception as exc:
+            lp = (log_prefix + " ") if log_prefix else ""
+            logger.exception("%sTavily sorgusu atlanıyor (%s): %s", lp, query[:80], exc)
+
+    return items
+
+
+def collect_tier1_sources(tavily_client: TavilyClient) -> list[dict[str, Any]]:
+    """
+    TIER1_TAVILY_QUERIES listesindeki her sorgu için Tavily'de arama yapar.
+    Her makaleye source_tier = "T1" etiketi ekler. Günlük collect_all içinde kullanılır.
+    """
+    rows = _gather_from_tavily_queries(
+        tavily_client,
+        queries=list(TIER1_TAVILY_QUERIES),
+        max_results_per_query=5,
+        source_tier_label="T1",
+        include_raw_content=False,
+        log_prefix="[T1]",
+    )
+    logger.info("[T1] %s Tier-1 Tavily makalesi toplandı.", len(rows))
+    return rows
+
+
+def collect_weekly_deep_scan(tavily_client: TavilyClient) -> list[dict[str, Any]]:
+    """
+    WEEKLY_DEEP_QUERIES ile derin whitepaper / rapor taraması (Pazartesi iş akışı için).
+    Her sonuca source_tier = "T2_weekly".
+    """
+    rows = _gather_from_tavily_queries(
+        tavily_client,
+        queries=list(WEEKLY_DEEP_QUERIES),
+        max_results_per_query=10,
+        source_tier_label="T2_weekly",
+        include_raw_content=False,
+        log_prefix="[T2_weekly]",
+    )
+    logger.info("[T2_weekly] %s haftalık derin tarama makalesi toplandı.", len(rows))
+    return rows
+
+
+def collect_from_tavily(
+    api_key: str,
+    max_results_per_query: int = 8,
+    client: TavilyClient | None = None,
+) -> list[dict[str, Any]]:
     """
     Tavily ile tanımlı sorgular üzerinden web sonuçları toplar.
+    Varsayılan `source_tier` etiketi: "standard".
 
     Tavily'nin döndürdüğü `published_date` varsa son 24 saat ile uyumluluğa çalışılır;
     yoksa sonuç yine de dahil edilir (web araması güncelliği için).
@@ -167,82 +316,17 @@ def collect_from_tavily(api_key: str, max_results_per_query: int = 8) -> list[di
         logger.warning("Tavily API anahtarı boş; Tavily adımı atlanıyor.")
         return []
 
-    seen_urls: set[str] = set()
-    items: list[dict[str, Any]] = []
-    client = TavilyClient(api_key=api_key.strip())
-    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=24)
+    if client is None:
+        client = TavilyClient(api_key=api_key.strip())
 
-    for query in TAVILY_QUERIES:
-        try:
-            response = client.search(
-                query=query,
-                search_depth="advanced",
-                max_results=max_results_per_query,
-            )
-            results = response.get("results") or []
-            added = 0
-            for r in results:
-                url = _normalize_url(r.get("url"))
-                if not url or url in seen_urls:
-                    continue
-                title = (r.get("title") or "").strip() or "(Başlıksız)"
-                summary = (r.get("content") or r.get("raw_content") or "").strip()
-                pub_raw = r.get("published_date")
-
-                published_date = ""
-                include = True
-                if not pub_raw:
-                    published_date = ""
-                    include = True  # Tavily tarihsiz sonuçlar Sheets de-dup ile kontrol edilir
-                elif pub_raw:
-                    try:
-                        # Tavily ISO formatları için basit parse
-                        if "T" in str(pub_raw):
-                            dt = datetime.fromisoformat(str(pub_raw).replace("Z", "+00:00"))
-                        else:
-                            dt = datetime.strptime(str(pub_raw)[:10], "%Y-%m-%d")
-                            dt = dt.replace(tzinfo=timezone.utc)
-                        if dt.tzinfo:
-                            dt_naive = dt.astimezone(timezone.utc).replace(tzinfo=None)
-                        else:
-                            dt_naive = dt
-                        published_date = dt_naive.strftime("%Y-%m-%d %H:%M UTC")
-                        include = dt_naive >= cutoff
-                        # Gönderilmiş URL mükerrer kontrolü Google Sheets adımında yapılır
-                    except (ValueError, TypeError):
-                        published_date = str(pub_raw)[:64]
-                        include = True
-
-                if not include:
-                    continue
-
-                seen_urls.add(url)
-                logger.debug(
-                    "Tavily sonuç eklendi: url=%s, tarih=%s",
-                    url[:80],
-                    published_date or "tarihi yok",
-                )
-                items.append(
-                    {
-                        "title": title,
-                        "url": url,
-                        "source": r.get("source") or TAVILY_SOURCE_LABEL,
-                        "published_date": published_date,
-                        "summary": summary[:2000] if summary else "",
-                        "_collector_origin": "tavily",
-                    }
-                )
-                added += 1
-
-            logger.info(
-                "Tavily tamamlandı: sorgu=%r, eklenen=%s",
-                query[:80],
-                added,
-            )
-        except Exception as exc:
-            logger.exception("Tavily sorgusu atlanıyor (%s): %s", query[:80], exc)
-
-    return items
+    return _gather_from_tavily_queries(
+        client,
+        queries=list(TAVILY_QUERIES),
+        max_results_per_query=max_results_per_query,
+        source_tier_label="standard",
+        include_raw_content=None,
+        log_prefix="",
+    )
 
 
 def merge_and_dedupe(
@@ -271,9 +355,22 @@ def merge_and_dedupe(
 
 def collect_all(tavily_api_key: str) -> list[dict[str, Any]]:
     """
-    RSS + Tavily toplama ana giriş noktası.
+    RSS + Tier-1 hedefli Tavily + standart Tavily sorguları — ana günlük toplama.
     """
-    logger.info("İçerik toplama başlıyor (RSS + Tavily).")
-    rss = collect_from_rss(hours=24)
-    tavily = collect_from_tavily(tavily_api_key)
-    return merge_and_dedupe(rss, tavily)
+    logger.info("İçerik toplama başlıyor (RSS + Tier1 Tavily + Tavily).")
+    rss_items = collect_from_rss(hours=24)
+
+    tier1_items: list[dict[str, Any]] = []
+    standard_tavily: list[dict[str, Any]] = []
+    api_key_clean = (tavily_api_key or "").strip()
+    if api_key_clean:
+        t_client = TavilyClient(api_key=api_key_clean)
+        tier1_items = collect_tier1_sources(t_client)
+        standard_tavily = collect_from_tavily(tavily_api_key, client=t_client)
+
+    merged = merge_and_dedupe(rss_items, tier1_items + standard_tavily)
+
+    for it in merged:
+        it.setdefault("source_tier", "standard")
+
+    return merged

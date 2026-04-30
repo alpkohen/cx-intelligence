@@ -14,9 +14,17 @@ from typing import Any, Callable
 import anthropic
 from anthropic import NotFoundError
 
-from config import CLAUDE_MODEL, SCORER_BATCH_SIZE
+from config import CLAUDE_MODEL, DEFAULT_SCORE_THRESHOLD, SCORER_BATCH_SIZE, TIER1_SCORE_THRESHOLD
 
 logger = logging.getLogger(__name__)
+
+
+def get_threshold(article: dict[str, Any]) -> int:
+    """RSS / standart Tavily için daha yüksek eşik; T1 ve haftalık derin kaynak için TIER1_SCORE_THRESHOLD."""
+    tier = str(article.get("source_tier") or "standard").strip()
+    if tier in ("T1", "T2_weekly"):
+        return TIER1_SCORE_THRESHOLD
+    return DEFAULT_SCORE_THRESHOLD
 
 
 def _call_with_retry(fn: Callable[[], Any], *, retries: int = 3, base_delay: float = 5.0):
