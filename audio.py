@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Any, Callable
 
 import anthropic
+from openai import OpenAI
 
 from config import CLAUDE_MODEL
 
@@ -75,8 +76,10 @@ def _minimal_for_briefing(it: dict[str, Any], *, tier: str) -> dict[str, Any]:
     return row
 
 
-_BRIEFING_SYSTEM = """Sen Türkçe sesli günlük özet yazarısın. Çıktın yalnızca doğrudan okunacak düz metin olmalı.
-Başlık, madde işareti, markdown, JSON veya tırnak kullanma. Doğal, sıcak konuşma dili kullan; gereksiz İngilizce teknik terimden kaçın."""
+_BRIEFING_SYSTEM = """Sen Türkçe sesli günlük brifing yazarısın. Çıktın doğrudan okunacak düz metin.
+Başlık, madde işareti, markdown, JSON kullanma.
+Her makaleye geçişte mutlaka kaynak adını ve konuyu belirten bir giriş cümlesi kullan.
+Doğal, sıcak ama profesyonel konuşma dili. Gereksiz İngilizce teknik terimden kaçın."""
 
 
 def generate_briefing_script(items: list[dict[str, Any]], anthropic_api_key: str) -> str:
@@ -122,17 +125,15 @@ Hedef uzunluk: 280–350 kelime (bu aralıkta tut).
 
 2. Makale sırası: önce Tier 1 listesindeki (JSON sırasına uy), sonra Tier 2 listesindeki (JSON sırasına uy).
 
-3. Her makale için cümle kalıpları:
+3. Tier 1 (9–10):
+Her içerik için şu yapıyı kullan:
+[Kaynak adı] raporuna göre: [başlık konusu].
+Ardından key_insight'ı 2-3 cümleyle genişlet.
+Makale bittikten sonra 'Bir sonraki önemli gelişmeye geçelim...' veya benzeri doğal bir geçiş cümlesi ekle.
 
-   Tier 1 (9–10) — tam bu yapıyı kullan (source, başlık ve key_insight alanları JSON'dan; doğal Türkçe okunuşa çevir):
-   "Kaynak [source] raporuna göre, [başlık]. En kritik bulgu: [key_insight]"
-   key_insight boşsa, kritik mesajı one_liner alanından tek cümleye indirgeme ve bu kalıpta ver.
-
-   Tier 2 (7–8) — makale başına tek blok:
-   "Ayrıca [source]'dan: [başlık]. [one_liner — tek tam cümle]"
-
-4. Geçiş cümleleri: İlk makaleden sonra başlayarak, her iki makale arasına (son makaleden sonra değil) kısa köprü ekle; sırayla
-   "Bir diğer önemli gelişme...", "Buna ek olarak..." ve benzer doğal varyasyonlar kullan.
+4. Tier 2 (7–8):
+Her içerik için: '[Kaynak]'dan önemli bir haber:' diye başla, başlığı söyle, 1-2 cümle açıkla.
+Aralarında 'Ayrıca...', 'Buna ek olarak...' gibi geçiş kullan.
 
 5. Kapanış:
    - Eğer "LinkedIn açısı" bölümünde somut bir metin varsa, şu kalıpla bitir:
@@ -177,9 +178,6 @@ LinkedIn açısı (ilk öneri, varsa):
 
 
 def generate_audio(script: str) -> bytes | None:
-    """
-    OpenAI TTS ile MP3 üretir. Hata veya boş script'te None döner.
-    """
     if not script or not script.strip():
         logger.warning("generate_audio: Boş script.")
         return None
@@ -190,19 +188,14 @@ def generate_audio(script: str) -> bytes | None:
         return None
 
     try:
-        from openai import OpenAI
-
         client = OpenAI(api_key=api_key)
         response = client.audio.speech.create(
             model="tts-1-hd",
             voice="nova",
             input=script.strip(),
+            response_format="mp3",
         )
-        data = response.content
-        if not isinstance(data, (bytes, bytearray)) or not data:
-            logger.warning("generate_audio: Boş ses çıktısı.")
-            return None
-        return bytes(data)
+        return response.content
     except Exception:
         logger.exception("generate_audio: OpenAI TTS hatası.")
         return None
