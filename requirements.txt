@@ -6,4 +6,6 @@ google-auth==2.37.0
 resend==2.4.0
 python-dotenv==1.0.1
 requests>=2.32.3
+beautifulsoup4>=4.12.3
+lxml>=5.0.0
 elevenlabs>=1.50.0
