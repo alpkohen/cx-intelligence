@@ -1,5 +1,5 @@
 """
-Türkçe sesli günlük brifing metni (Claude) ve MP3 üretimi (ElevenLabs).
+Türkçe sesli günlük brifing metni (Claude) ve MP3 üretimi (OpenAI TTS).
 """
 
 from __future__ import annotations
@@ -16,10 +16,6 @@ import anthropic
 from config import CLAUDE_MODEL
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_ELEVENLABS_VOICE_ID = "pNInz6obpgDQGcFmaJgB"
-ELEVENLABS_MODEL_ID = "eleven_multilingual_v2"
-TTS_OUTPUT_FORMAT = "mp3_44100_128"
 
 
 def _call_with_retry(fn: Callable[[], Any], *, retries: int = 3, base_delay: float = 5.0):
@@ -117,18 +113,28 @@ def generate_briefing_script(items: list[dict[str, Any]], anthropic_api_key: str
 
     user_content = f"""Aşağıdaki veriye göre tek parça Türkçe sesli günlük brifing metni yaz.
 
-Hedef uzunluk: 280–350 kelime (mutlaka bu aralıkta tut).
+Hedef uzunluk: 280–350 kelime (bu aralıkta tut).
 
 İç yapı:
 
-1. Giriş — tam şu kalıpla başla (değerleri koru):
+1. Giriş — tam şu kalıpla başla:
    "Bugün {today}, CX Intelligence günlük özeti. {total} içerik, {len(tier1)} mutlaka okunacak."
 
-2. Tier 1 (9–10): Aşağıdaki her içerik için önce başlığı söyle, ardından key_insight doluysa onu genişleterek 3–4 cümle anlat; yoksa one_liner'dan 3–4 cümle üret.
+2. Makale sırası: önce Tier 1 listesindeki (JSON sırasına uy), sonra Tier 2 listesindeki (JSON sırasına uy).
 
-3. Tier 2 (7–8): Her içerik için başlık + 1–2 cümle.
+3. Her makale için cümle kalıpları:
 
-4. Kapanış:
+   Tier 1 (9–10) — tam bu yapıyı kullan (source, başlık ve key_insight alanları JSON'dan; doğal Türkçe okunuşa çevir):
+   "Kaynak [source] raporuna göre, [başlık]. En kritik bulgu: [key_insight]"
+   key_insight boşsa, kritik mesajı one_liner alanından tek cümleye indirgeme ve bu kalıpta ver.
+
+   Tier 2 (7–8) — makale başına tek blok:
+   "Ayrıca [source]'dan: [başlık]. [one_liner — tek tam cümle]"
+
+4. Geçiş cümleleri: İlk makaleden sonra başlayarak, her iki makale arasına (son makaleden sonra değil) kısa köprü ekle; sırayla
+   "Bir diğer önemli gelişme...", "Buna ek olarak..." ve benzer doğal varyasyonlar kullan.
+
+5. Kapanış:
    - Eğer "LinkedIn açısı" bölümünde somut bir metin varsa, şu kalıpla bitir:
      "Bugünün LinkedIn önerisi: " ve ardından o açıyı 1–2 cümleyle özetle.
    - LinkedIn açısı yoksa kısa bir veda cümlesiyle bitir (LinkedIn cümlesini kullanma).
@@ -170,52 +176,33 @@ LinkedIn açısı (ilk öneri, varsa):
     return text
 
 
-def _convert_to_mp3_bytes(stream: Any) -> bytes:
-    if stream is None:
-        return b""
-    if isinstance(stream, (bytes, bytearray)):
-        return bytes(stream)
-    out = bytearray()
-    for chunk in stream:
-        if isinstance(chunk, bytes):
-            out.extend(chunk)
-        elif isinstance(chunk, bytearray):
-            out.extend(chunk)
-        else:
-            out.extend(bytes(chunk))
-    return bytes(out)
-
-
 def generate_audio(script: str) -> bytes | None:
     """
-    ElevenLabs ile MP3 üretir. Hata veya boş script'te None döner.
+    OpenAI TTS ile MP3 üretir. Hata veya boş script'te None döner.
     """
     if not script or not script.strip():
         logger.warning("generate_audio: Boş script.")
         return None
 
-    api_key = (os.getenv("ELEVENLABS_API_KEY") or "").strip()
+    api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
     if not api_key:
-        logger.warning("generate_audio: ELEVENLABS_API_KEY boş.")
+        logger.warning("generate_audio: OPENAI_API_KEY boş.")
         return None
 
-    voice_id = (os.getenv("ELEVENLABS_VOICE_ID") or "").strip() or DEFAULT_ELEVENLABS_VOICE_ID
-
     try:
-        from elevenlabs.client import ElevenLabs
+        from openai import OpenAI
 
-        client = ElevenLabs(api_key=api_key)
-        audio = client.text_to_speech.convert(
-            text=script.strip(),
-            voice_id=voice_id,
-            model_id=ELEVENLABS_MODEL_ID,
-            output_format=TTS_OUTPUT_FORMAT,
+        client = OpenAI(api_key=api_key)
+        response = client.audio.speech.create(
+            model="tts-1-hd",
+            voice="nova",
+            input=script.strip(),
         )
-        data = _convert_to_mp3_bytes(audio)
-        if not data:
+        data = response.content
+        if not isinstance(data, (bytes, bytearray)) or not data:
             logger.warning("generate_audio: Boş ses çıktısı.")
             return None
-        return data
+        return bytes(data)
     except Exception:
-        logger.exception("generate_audio: ElevenLabs hatası.")
+        logger.exception("generate_audio: OpenAI TTS hatası.")
         return None
