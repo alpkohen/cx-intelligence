@@ -83,6 +83,26 @@ def _escape_html(text: str) -> str:
     )
 
 
+def _truncate_title_plain(text: str, max_chars: int = 35) -> str:
+    t = text.strip()
+    if len(t) <= max_chars:
+        return t
+    return (t[: max_chars - 1].rstrip() + "…") if max_chars > 1 else "…"
+
+
+def _audio_meta_line(items: list[dict[str, Any]]) -> str:
+    """Tier 1 kısaltılmış başlıklar + Önemli (7–8) sayısı; metin düz."""
+    tier1_parts = [
+        _truncate_title_plain(str(it.get("title") or ""), 35)
+        for it in items
+        if int(it.get("score") or 0) >= 9
+    ]
+    onemli_n = sum(1 for it in items if 7 <= int(it.get("score") or 0) <= 8)
+    if tier1_parts:
+        return ", ".join(tier1_parts) + f" · Önemli: {onemli_n} makale"
+    return f"Önemli: {onemli_n} makale"
+
+
 def build_summary_section(items: list[dict[str, Any]]) -> str:
     """E-postanın başına eklenen özet kutu: tier sayıları + toplam içerik adedi."""
     if not items:
@@ -252,11 +272,6 @@ def build_html_email(
     rss_n = origin_counts.get("rss", 0)
     tavily_n = origin_counts.get("tavily", 0)
 
-    avg_score = (
-        sum(int(it.get("score") or 0) for it in items) / len(items)
-        if items else 0
-    )
-
     def top_border(score: int) -> str:
         if score >= 9:
             return "border-top:3px solid #c9a84c;"
@@ -281,22 +296,13 @@ def build_html_email(
 
         enrich_block = ""
         if score >= 7:
-            frags: list[str] = []
-            ds_raw = str(it.get("deep_summary") or "").strip()
             ks_raw = str(it.get("key_insight") or "").strip()
-            if ds_raw:
-                ds_esc = _escape_html(ds_raw)
-                frags.append(f"""
-          <p style="margin:0 0 4px 0;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#bbbbbb;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">DEEP SUMMARY</p>
-          <p style="margin:0 0 12px 0;font-size:14px;color:#444444;line-height:1.55;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{ds_esc}</p>
-""")
             if ks_raw:
                 ks_esc = _escape_html(ks_raw)
-                frags.append(f"""
+                enrich_block = f"""
           <p style="margin:0 0 4px 0;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#bbbbbb;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">KRİTİK BULGU</p>
           <p style="margin:0 0 12px 0;font-size:13px;color:#c9a84c;line-height:1.5;font-style:italic;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{ks_esc}</p>
-""")
-            enrich_block = "".join(frags)
+"""
 
         cards_html.append(f"""
 <tr>
@@ -354,6 +360,7 @@ def build_html_email(
     audio_html = ""
     if audio_url:
         safe_audio = _escape_html(audio_url)
+        audio_meta_esc = _escape_html(_audio_meta_line(items))
         audio_html = f"""
 <tr>
   <td style="padding:8px 0 0 0;">
@@ -361,26 +368,8 @@ def build_html_email(
            style="background:#1a1a1a;border-left:3px solid #c9a84c;border-collapse:collapse;">
       <tr>
         <td style="padding:16px 24px;">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-            <tr>
-              <td width="40" style="vertical-align:middle;padding-right:14px;">
-                <div style="width:40px;height:40px;border-radius:20px;background:#c9a84c;text-align:center;line-height:40px;font-size:16px;">&#9654;</div>
-              </td>
-              <td style="vertical-align:middle;">
-                <p style="margin:0 0 2px;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#c9a84c;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Sesli Özet</p>
-                <a href="{safe_audio}" style="font-size:13px;color:#888888;text-decoration:none;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Bugünün bülteni &nbsp;·&nbsp; dinle &rarr;</a>
-              </td>
-              <td align="right" style="vertical-align:middle;">
-                <table cellspacing="0" cellpadding="0"><tr>
-                  <td style="width:3px;height:8px;background:#c9a84c;border-radius:2px;opacity:0.4;padding:0 1px;vertical-align:bottom;"></td>
-                  <td style="width:3px;height:14px;background:#c9a84c;border-radius:2px;padding:0 1px;vertical-align:bottom;"></td>
-                  <td style="width:3px;height:20px;background:#c9a84c;border-radius:2px;padding:0 1px;vertical-align:bottom;"></td>
-                  <td style="width:3px;height:12px;background:#c9a84c;border-radius:2px;opacity:0.7;padding:0 1px;vertical-align:bottom;"></td>
-                  <td style="width:3px;height:16px;background:#c9a84c;border-radius:2px;opacity:0.8;padding:0 1px;vertical-align:bottom;"></td>
-                </tr></table>
-              </td>
-            </tr>
-          </table>
+          <a href="{safe_audio}" style="font-size:13px;color:#888888;text-decoration:none;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Sesli Özet — dinle &rarr;</a>
+          <p style="margin:5px 0 0 0;font-size:11px;color:#555555;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{audio_meta_esc}</p>
         </td>
       </tr>
     </table>
@@ -404,7 +393,7 @@ def build_html_email(
           <tr>
             <td style="background:#111111;padding:28px 32px 24px 32px;border-radius:0;">
               <p style="margin:0 0 8px 0;font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#c9a84c;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Günlük Bülten</p>
-              <h1 style="margin:0 0 6px 0;font-size:24px;font-weight:700;color:#ffffff;letter-spacing:-0.3px;line-height:1.2;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">CX Intelligence Daily</h1>
+              <h1 style="margin:0 0 6px 0;font-size:24px;font-weight:700;color:#ffffff;letter-spacing:-0.3px;line-height:1.2;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;"><span style="font-size:10px;font-weight:700;letter-spacing:0.15em;color:#c9a84c;font-family:'Courier New',monospace;margin-right:10px;">real&amp;co.</span><span>CX Intelligence Daily</span></h1>
               <p style="margin:0;font-size:13px;color:#777777;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{ _escape_html(report_date) } &nbsp;·&nbsp; {len(items)} içerik seçildi</p>
               <div style="margin-top:20px;height:1px;background:linear-gradient(90deg,#c9a84c 0%,#c9a84c 40%,transparent 100%);"></div>
             </td>
@@ -441,13 +430,9 @@ def build_html_email(
                           <p style="margin:0;font-size:20px;font-weight:700;color:#111111;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{rss_n}</p>
                           <p style="margin:4px 0 0 0;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#aaaaaa;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">RSS</p>
                         </td>
-                        <td align="center" style="border-right:1px solid #f0ede6;">
+                        <td align="center">
                           <p style="margin:0;font-size:20px;font-weight:700;color:#111111;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{tavily_n}</p>
                           <p style="margin:4px 0 0 0;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#aaaaaa;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Tavily</p>
-                        </td>
-                        <td align="center">
-                          <p style="margin:0;font-size:20px;font-weight:700;color:#c9a84c;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{avg_score:.1f}</p>
-                          <p style="margin:4px 0 0 0;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#aaaaaa;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Ort. Puan</p>
                         </td>
                       </tr>
                     </table>
