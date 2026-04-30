@@ -31,6 +31,12 @@ from scorer import score_items
 from sheets import get_sent_count, load_sent_url_set, mark_as_sent
 
 
+def _linkedin_enabled() -> bool:
+    """LINKEDIN_ENABLED=1/true/on/yes ise LinkedIn Claude adımı ve e-posta bölümü açılır."""
+    v = (os.getenv("LINKEDIN_ENABLED") or "0").strip().lower()
+    return v in ("1", "true", "yes", "on")
+
+
 def _configure_logging() -> None:
     """Standart çıktı için Türkçe günlük formatı."""
     logging.basicConfig(
@@ -147,15 +153,20 @@ def main() -> int:
     today_tr = datetime.now().strftime("%d.%m.%Y")
 
     linkedin_suggestions = []
-    log.info("Adım 7b: LinkedIn post adayları tespit ediliyor.")
-    try:
-        linkedin_suggestions = suggest_linkedin_posts(
-            scored_items=selected,
-            anthropic_api_key=anthropic_key,
+    if _linkedin_enabled():
+        log.info("Adım 7b: LinkedIn post adayları tespit ediliyor.")
+        try:
+            linkedin_suggestions = suggest_linkedin_posts(
+                scored_items=selected,
+                anthropic_api_key=anthropic_key,
+            )
+            log.info("LinkedIn önerisi sayısı: %s", len(linkedin_suggestions))
+        except Exception:
+            log.exception("LinkedIn adımı başarısız; devam ediliyor.")
+    else:
+        log.info(
+            "LinkedIn bölümü kapalı (LINKEDIN_ENABLED ile açılır); Claude çağrısı yapılmayacak."
         )
-        log.info("LinkedIn önerisi sayısı: %s", len(linkedin_suggestions))
-    except Exception:
-        log.exception("LinkedIn adımı başarısız; devam ediliyor.")
 
     html_body = build_html_email(
         selected,
