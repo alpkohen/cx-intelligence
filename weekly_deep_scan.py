@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 from tavily import TavilyClient
 
 from collector import collect_weekly_deep_scan
-from emailer import build_html_email, format_subject_with_prefix, send_daily_email
+from emailer import build_html_email, format_subject, send_daily_email
 from scorer import get_threshold, score_items
 from sheets import load_sent_url_set, mark_as_sent
 from summarizer import enrich_high_score_items
@@ -99,9 +99,11 @@ def run_weekly_scan() -> int:
         linkedin_suggestions=None,
         audio_url=None,
     )
-    subject = format_subject_with_prefix("[Haftalık Tarama]", len(summarized), date_label=today_tr)
-
-    send_daily_email(html_body=html_body, subject=subject)
+    subject = format_subject(len(summarized), date_label=today_tr)
+    send_daily_email(
+        html_body=html_body,
+        subject="[Haftalık Tarama] " + subject,
+    )
     logger.info("Haftalık e-postası gönderildi.")
     try:
         mark_as_sent(summarized)

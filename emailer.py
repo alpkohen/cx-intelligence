@@ -351,8 +351,9 @@ def build_html_email(
     linkedin_html = build_linkedin_section(linkedin_suggestions or [])
 
     audio_html = ""
-    if audio_url:
-        safe_audio = _escape_html(audio_url)
+    audio_src = (audio_url or "").strip() if audio_url is not None else ""
+    if audio_src:
+        safe_audio = _escape_html(audio_src)
         audio_meta_esc = _escape_html(_audio_meta_line(items))
         play_svg = (
             '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="14" '

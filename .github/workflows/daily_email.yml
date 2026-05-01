@@ -4,7 +4,9 @@ on:
   schedule:
     # Türkiye saati 07:00 (TRT, UTC+3) ≈ 04:00 UTC
     - cron: "0 4 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+  push:
+    branches: [main]
 
 permissions:
   contents: read

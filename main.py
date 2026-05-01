@@ -192,7 +192,7 @@ def main() -> int:
         selected,
         report_date=today_tr,
         linkedin_suggestions=linkedin_suggestions,
-        audio_url=audio_url,
+        audio_url=audio_url if audio_url else None,
     )
     subject = format_subject(len(selected), date_label=today_tr)
 
