@@ -47,15 +47,6 @@ def _score(it: dict[str, Any]) -> int:
         return 0
 
 
-def _linkedin_angle(items: list[dict[str, Any]]) -> str:
-    """İlk li_angle içeren öğe (LinkedIn adayları seçili listeye işlendiyse)."""
-    for it in items:
-        angle = str(it.get("li_angle") or "").strip()
-        if angle:
-            return angle
-    return ""
-
-
 def _tier_payload(items: list[dict[str, Any]]) -> tuple[list[dict], list[dict]]:
     tier1 = [it for it in items if _score(it) >= 9]
     tier2 = [it for it in items if 7 <= _score(it) <= 8]
@@ -85,7 +76,7 @@ Doğal, sıcak ama profesyonel konuşma dili. Gereksiz İngilizce teknik terimde
 def generate_briefing_script(items: list[dict[str, Any]], anthropic_api_key: str) -> str:
     """
     Seçilen içeriklerden Türkçe sesli brifing metni üretir (Claude Haiku).
-    Tier 3 ve altı özette kullanılmaz; girişte toplam içerik sayısı kullanılabilir.
+    Ses özeti için yalnızca Tier 1 (9–10) kullanılır.
     """
     key = (anthropic_api_key or "").strip()
     if not key:
@@ -94,60 +85,32 @@ def generate_briefing_script(items: list[dict[str, Any]], anthropic_api_key: str
 
     today = datetime.now().strftime("%d.%m.%Y")
     total = len(items)
-    tier1, tier2 = _tier_payload(items)
-    li_angle = _linkedin_angle(items)
+    tier1, _ = _tier_payload(items)
 
     t1_json = json.dumps(
         [_minimal_for_briefing(it, tier="1") for it in tier1],
         ensure_ascii=False,
         indent=2,
     )
-    t2_json = json.dumps(
-        [_minimal_for_briefing(it, tier="2") for it in tier2],
-        ensure_ascii=False,
-        indent=2,
-    )
-
-    li_hint = (
-        li_angle
-        if li_angle
-        else "(LinkedIn önerisi yoksa kapanışı kısa ve genel tut; 'Bugünün LinkedIn önerisi' cümlesini kullanma.)"
-    )
 
     user_content = f"""Aşağıdaki veriye göre tek parça Türkçe sesli günlük brifing metni yaz.
 
-Hedef uzunluk: 280–350 kelime (bu aralıkta tut).
+Hedef uzunluk: 120–150 kelime (mutlaka bu aralıkta tut).
 
 İç yapı:
-
 1. Giriş — tam şu kalıpla başla:
-   "Bugün {today}, CX Intelligence günlük özeti. {total} içerik, {len(tier1)} mutlaka okunacak."
+"Bugün {today}, CX Intelligence günlük özeti. {total} içerik tarandı, {len(tier1)} kritik bulgu var."
 
-2. Makale sırası: önce Tier 1 listesindeki (JSON sırasına uy), sonra Tier 2 listesindeki (JSON sırasına uy).
+2. Sadece Tier 1 (9–10 puan) içerikler: Her biri için önce kaynağı ve başlığı söyle, 
+ardından key_insight varsa onu 2 cümleyle anlat, yoksa one_liner'dan 2 cümle üret. 
+Aralarına doğal geçiş cümleleri koy.
 
-3. Tier 1 (9–10):
-Her içerik için şu yapıyı kullan:
-[Kaynak adı] raporuna göre: [başlık konusu].
-Ardından key_insight'ı 2-3 cümleyle genişlet.
-Makale bittikten sonra 'Bir sonraki önemli gelişmeye geçelim...' veya benzeri doğal bir geçiş cümlesi ekle.
-
-4. Tier 2 (7–8):
-Her içerik için: '[Kaynak]'dan önemli bir haber:' diye başla, başlığı söyle, 1-2 cümle açıkla.
-Aralarında 'Ayrıca...', 'Buna ek olarak...' gibi geçiş kullan.
-
-5. Kapanış:
-   - Eğer "LinkedIn açısı" bölümünde somut bir metin varsa, şu kalıpla bitir:
-     "Bugünün LinkedIn önerisi: " ve ardından o açıyı 1–2 cümleyle özetle.
-   - LinkedIn açısı yoksa kısa bir veda cümlesiyle bitir (LinkedIn cümlesini kullanma).
+3. Kapanış: Tek cümle, kısa veda.
 
 Tier 1 içerikler (JSON):
 {t1_json}
 
-Tier 2 içerikler (JSON):
-{t2_json}
-
-LinkedIn açısı (ilk öneri, varsa):
-{li_hint}
+Tier 2 ve altını sesli özete DAHIL ETME.
 """
 
     client = anthropic.Anthropic(api_key=key)
