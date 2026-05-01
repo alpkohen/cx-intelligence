@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import logging
 import os
-from collections import Counter
 from datetime import datetime
 from typing import Any
 
@@ -267,12 +266,6 @@ def build_html_email(
     linkedin_suggestions: list[dict[str, Any]] | None = None,
     audio_url: str | None = None,
 ) -> str:
-    origin_counts = Counter(
-        (it.get("_collector_origin") or "unknown").lower() for it in items
-    )
-    rss_n = origin_counts.get("rss", 0)
-    tavily_n = origin_counts.get("tavily", 0)
-
     def top_border(score: int) -> str:
         if score >= 9:
             return "border-top:3px solid #c9a84c;"
@@ -442,45 +435,68 @@ def build_html_email(
 
           {linkedin_html}
 
-          <!-- FOOTER STATS -->
+          <!-- FOOTER -->
           <tr>
-            <td style="padding:20px 0 8px 0;">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
-                     style="background:#ffffff;border-radius:6px;border:1px solid #e8e5df;">
-                <tr>
-                  <td style="padding:18px 22px;">
-                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                      <tr>
-                        <td align="center" style="border-right:1px solid #f0ede6;padding:0 0 0 0;">
-                          <p style="margin:0;font-size:20px;font-weight:700;color:#111111;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{len(items)}</p>
-                          <p style="margin:4px 0 0 0;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#aaaaaa;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">İçerik</p>
-                        </td>
-                        <td align="center" style="border-right:1px solid #f0ede6;">
-                          <p style="margin:0;font-size:20px;font-weight:700;color:#111111;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{rss_n}</p>
-                          <p style="margin:4px 0 0 0;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#aaaaaa;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">RSS</p>
-                        </td>
-                        <td align="center">
-                          <p style="margin:0;font-size:20px;font-weight:700;color:#111111;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{tavily_n}</p>
-                          <p style="margin:4px 0 0 0;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#aaaaaa;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Tavily</p>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:0 22px 16px 22px;border-top:1px solid #f0ede6;">
-                    <p style="margin:14px 0 8px 0;font-size:11px;color:#cccccc;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;line-height:1.7;">
-                      RSS + Tavily &rarr; Claude Haiku puanlama &rarr; Google Sheets de-dup &rarr; Resend
-                    </p>
-                    <p style="margin:0;font-size:11px;color:#cccccc;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">
-                      <span style="color:#c9a84c;font-weight:700;">&#9632;</span> Mutlaka Oku (9–10) &nbsp;
-                      <span style="color:#e07b4a;font-weight:700;">&#9632;</span> Önemli (7–8) &nbsp;
-                      <span style="color:#94a3b8;font-weight:700;">&#9632;</span> Gündem (5–6) &nbsp;
-                      <span style="color:#dddddd;font-weight:700;">&#9632;</span> Genel (1–4)
-                    </p>
-                  </td>
-                </tr>
-              </table>
+            <td style="padding:0;background:#111111;">
+<div style="border-top:1px solid #2a2a2a;margin-top:40px;">
+  
+  <!-- Divider -->
+  <div style="height:1px;background:linear-gradient(90deg,transparent,#C9A84C44,transparent);margin:0 40px;"></div>
+
+  <!-- Brand strip -->
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:28px 40px 20px;">
+    <div>
+      <div style="font-size:18px;font-weight:700;color:#fff;letter-spacing:-0.3px;">real<span style="color:#C9A84C;">&amp;co.</span></div>
+      <div style="font-size:11px;color:#666;margin-top:3px;text-transform:uppercase;letter-spacing:0.5px;">The Customer Truth Company</div>
+    </div>
+    <div style="display:flex;gap:20px;">
+      <a href="https://realcx.co" style="color:#888;text-decoration:none;font-size:12px;">realcx.co</a>
+      <a href="https://uniq-tr.com" style="color:#888;text-decoration:none;font-size:12px;">uniq-tr.com</a>
+      <a href="https://linkedin.com/company/realcx" style="color:#888;text-decoration:none;font-size:12px;">LinkedIn</a>
+    </div>
+  </div>
+
+  <!-- Stats strip -->
+  <div style="display:flex;margin:0 40px 24px;border:1px solid #1f1f1f;border-radius:6px;overflow:hidden;">
+    <div style="flex:1;padding:12px 16px;border-right:1px solid #1f1f1f;text-align:center;">
+      <div style="font-size:16px;font-weight:600;color:#C9A84C;">55</div>
+      <div style="font-size:10px;color:#555;text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;">RSS Kaynak</div>
+    </div>
+    <div style="flex:1;padding:12px 16px;border-right:1px solid #1f1f1f;text-align:center;">
+      <div style="font-size:16px;font-weight:600;color:#C9A84C;">21</div>
+      <div style="font-size:10px;color:#555;text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;">Arama Sorgusu</div>
+    </div>
+    <div style="flex:1;padding:12px 16px;text-align:center;">
+      <div style="font-size:16px;font-weight:600;color:#C9A84C;">10+</div>
+      <div style="font-size:10px;color:#555;text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;">Tier-1 Kaynak</div>
+    </div>
+  </div>
+
+  <!-- Nav links -->
+  <div style="display:flex;justify-content:center;gap:24px;padding:0 40px 20px;">
+    <a href="#" style="color:#666;text-decoration:none;font-size:12px;">Arşiv</a>
+    <span style="color:#333;font-size:12px;">·</span>
+    <a href="#" style="color:#666;text-decoration:none;font-size:12px;">Kaynaklar</a>
+    <span style="color:#333;font-size:12px;">·</span>
+    <a href="#" style="color:#666;text-decoration:none;font-size:12px;">Geri Bildirim</a>
+    <span style="color:#333;font-size:12px;">·</span>
+    <a href="#" style="color:#666;text-decoration:none;font-size:12px;">Aboneliği Yönet</a>
+  </div>
+
+  <!-- Disclaimer -->
+  <div style="margin:0 40px;padding:16px 20px;background:#111;border-radius:6px;border-left:2px solid #C9A84C33;">
+    <p style="font-size:10px;color:#444;line-height:1.6;margin:0;">Bu bülten yalnızca bilgilendirme amaçlıdır. İçerikler otomatik olarak toplanmakta ve yapay zeka ile özetlenmektedir. Kaynaklardaki görüşler real&amp;co. veya UNIQ'in kurumsal pozisyonlarını yansıtmaz.</p>
+    <p style="font-size:10px;color:#444;line-height:1.6;margin:6px 0 0;">Bu e-postayı bir iş arkadaşınızdan aldıysanız ve abonelik oluşturmak istiyorsanız bizimle iletişime geçin.</p>
+  </div>
+
+  <!-- Bottom bar -->
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 40px 24px;margin-top:20px;">
+    <div style="font-size:11px;color:#444;">© 2026 real&amp;co. · Tüm hakları saklıdır.</div>
+    <div style="font-size:11px;color:#444;"><a href="#" style="color:#555;text-decoration:underline;">Abonelikten çık</a></div>
+  </div>
+
+</div>
+<!-- END FOOTER -->
             </td>
           </tr>
 
