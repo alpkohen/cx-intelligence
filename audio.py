@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Any, Callable
 
 import anthropic
+from openai import OpenAI
 
 from config import CLAUDE_MODEL
 
@@ -187,8 +188,6 @@ def generate_audio(script: str) -> bytes | None:
         return None
 
     try:
-        from openai import OpenAI
-
         client = OpenAI(api_key=api_key)
         response = client.audio.speech.create(
             model="tts-1-hd",
