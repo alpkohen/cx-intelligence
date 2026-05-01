@@ -11,6 +11,7 @@ from collections import Counter
 from datetime import datetime
 from typing import Any
 
+import requests
 import resend
 
 from config import LINKEDIN_SECTION_LABEL
@@ -493,6 +494,63 @@ def build_html_email(
     return html
 
 
+def _fetch_audience_active_emails(api_key: str, audience_id: str) -> list[str]:
+    """
+    GET https://api.resend.com/audiences/{audience_id}/contacts
+    Yalnızca unsubscribed=False olan adresler (cursor sayfalı).
+    """
+    headers = {"Authorization": f"Bearer {api_key}"}
+    aid = audience_id.strip()
+    base_url = f"https://api.resend.com/audiences/{aid}/contacts"
+    out: list[str] = []
+    seen: set[str] = set()
+    after_cursor: str | None = None
+
+    for _page in range(500):
+        params: dict[str, Any] = {"limit": 100}
+        if after_cursor:
+            params["after"] = after_cursor
+
+        resp = requests.get(base_url, headers=headers, params=params, timeout=60)
+        if resp.status_code != 200:
+            logger.error(
+                "Resend Audience contacts HTTP %s: %s",
+                resp.status_code,
+                (resp.text or "")[:500],
+            )
+            resp.raise_for_status()
+
+        body = resp.json()
+        contacts = body.get("data") or []
+        if not isinstance(contacts, list):
+            break
+
+        for c in contacts:
+            if not isinstance(c, dict):
+                continue
+            if c.get("unsubscribed") is not False:
+                continue
+            em_raw = str(c.get("email") or "").strip()
+            em_low = em_raw.lower()
+            if em_low and em_low not in seen:
+                seen.add(em_low)
+                out.append(em_raw)
+
+        if not contacts or not body.get("has_more"):
+            break
+
+        last = contacts[-1]
+        last_id = last.get("id") if isinstance(last, dict) else None
+        if not last_id:
+            break
+        next_after = str(last_id)
+        if next_after == after_cursor:
+            break
+        after_cursor = next_after
+
+    return out
+
+
 def send_daily_email(html_body: str, subject: str) -> dict[str, Any]:
     """
     Resend ile HTML e-posta gönderir.
@@ -500,24 +558,36 @@ def send_daily_email(html_body: str, subject: str) -> dict[str, Any]:
     Ortam değişkenleri:
     - RESEND_API_KEY
     - RESEND_FROM_EMAIL (doğrulanmış gönderen)
-    - RESEND_TO_EMAIL (alıcı; virgülle çoklu olabilir)
+    - RESEND_AUDIENCE_ID (opsiyonel; dolu ise kitle içinde unsubscribed=false alıcılar)
+    - RESEND_TO_EMAIL (RESEND_AUDIENCE_ID yoksa zorunlu; virgülle çoklu alıcı)
     """
     api_key = os.environ.get("RESEND_API_KEY", "").strip()
     from_email = os.environ.get("RESEND_FROM_EMAIL", "").strip()
+    audience_id = os.environ.get("RESEND_AUDIENCE_ID", "").strip()
     to_raw = os.environ.get("RESEND_TO_EMAIL", "").strip()
 
     if not api_key:
         raise ValueError("RESEND_API_KEY boş.")
     if not from_email:
         raise ValueError("RESEND_FROM_EMAIL boş.")
-    if not to_raw:
-        raise ValueError("RESEND_TO_EMAIL boş.")
+
+    if audience_id:
+        to_list = _fetch_audience_active_emails(api_key, audience_id)
+        if not to_list:
+            raise ValueError(
+                "RESEND_AUDIENCE_ID tanımlı ancak yayın için abone e-postası bulunamadı "
+                "(liste boş veya tüm iletişimler abonelikten çıkmış olabilir)."
+            )
+        logger.info("Resend Audience %r: unsubscribed=false alıcı sayısı=%s", audience_id, len(to_list))
+    else:
+        if not to_raw:
+            raise ValueError("RESEND_TO_EMAIL boş.")
+        to_list = [x.strip() for x in to_raw.split(",") if x.strip()]
 
     _validate_resend_from_address(from_email)
 
     resend.api_key = api_key
 
-    to_list = [x.strip() for x in to_raw.split(",") if x.strip()]
     logger.info(
         "Resend gönderim ön kontrolü: API anahtarı uzunluk=%s, gönderen=%s, alıcı sayısı=%s",
         len(api_key),
@@ -542,8 +612,8 @@ def send_daily_email(html_body: str, subject: str) -> dict[str, Any]:
         result = resend.Emails.send(params)
         logger.info("Resend yanıtı: %s", result)
         return result if isinstance(result, dict) else {"result": result}
-    except Exception as exc:
-        logger.exception("Resend gönderim hatası: %s", exc)
+    except Exception:
+        logger.exception("Resend gönderim hatası.")
         raise
 
 
