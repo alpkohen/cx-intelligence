@@ -1,5 +1,5 @@
 """
-Türkçe sesli günlük brifing metni (Claude) ve MP3 üretimi (OpenAI TTS).
+Türkçe sesli günlük brifing metni (Claude Haiku) ve MP3 üretimi (OpenAI TTS).
 """
 
 from __future__ import annotations
@@ -12,7 +12,6 @@ from datetime import datetime
 from typing import Any, Callable
 
 import anthropic
-from openai import OpenAI
 
 from config import CLAUDE_MODEL
 
@@ -188,12 +187,13 @@ def generate_audio(script: str) -> bytes | None:
         return None
 
     try:
+        from openai import OpenAI
+
         client = OpenAI(api_key=api_key)
         response = client.audio.speech.create(
             model="tts-1-hd",
             voice="nova",
             input=script.strip(),
-            response_format="mp3",
         )
         return response.content
     except Exception:
