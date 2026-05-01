@@ -485,8 +485,7 @@ def build_html_email(
 
   <!-- Disclaimer -->
   <div style="margin:0 40px;padding:16px 20px;background:#111;border-radius:6px;border-left:2px solid #C9A84C33;">
-    <p style="font-size:10px;color:#444;line-height:1.6;margin:0;">Bu bülten yalnızca bilgilendirme amaçlıdır. İçerikler otomatik olarak toplanmakta ve yapay zeka ile özetlenmektedir. Kaynaklardaki görüşler real&amp;co. veya UNIQ'in kurumsal pozisyonlarını yansıtmaz.</p>
-    <p style="font-size:10px;color:#444;line-height:1.6;margin:6px 0 0;">Bu e-postayı bir iş arkadaşınızdan aldıysanız ve abonelik oluşturmak istiyorsanız bizimle iletişime geçin.</p>
+    <p style="font-size:10px;color:#444;line-height:1.6;margin:0;">Bu bülten yalnızca bilgilendirme amaçlıdır. İçerikler otomatik olarak toplanmakta ve yapay zeka ile özetlenmektedir. Kaynaklardaki görüşler real&amp;co.'nun kurumsal pozisyonunu yansıtmaz.</p>
   </div>
 
   <!-- Bottom bar -->
