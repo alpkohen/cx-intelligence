@@ -10,6 +10,7 @@ import os
 import time
 from datetime import datetime
 from typing import Any, Callable
+from urllib.parse import urlparse
 
 import anthropic
 from openai import OpenAI
@@ -53,10 +54,30 @@ def _tier_payload(items: list[dict[str, Any]]) -> tuple[list[dict], list[dict]]:
     return tier1, tier2
 
 
+def _voice_source_label(it: dict[str, Any]) -> str:
+    """
+    Ses brifinginde 'Tavily' dememek için: yalnızca anlamlı yayıncı adını döndürür.
+    Kayıt 'Tavily' etiketliyse URL'den domain alınır; RSS vb. gerçek kaynak adı korunur.
+    """
+    raw = str(it.get("source") or "").strip()
+    if raw and raw.casefold() != "tavily":
+        return raw
+    url = str(it.get("url") or "").strip()
+    if not url:
+        return ""
+    try:
+        host = (urlparse(url).netloc or "").strip().lower()
+        if host.startswith("www."):
+            host = host[4:]
+        return host or ""
+    except Exception:
+        return ""
+
+
 def _minimal_for_briefing(it: dict[str, Any], *, tier: str) -> dict[str, Any]:
     row = {
         "title": it.get("title") or "",
-        "source": it.get("source") or "",
+        "source": _voice_source_label(it),
         "score": _score(it),
     }
     if tier == "1":
@@ -69,7 +90,8 @@ def _minimal_for_briefing(it: dict[str, Any], *, tier: str) -> dict[str, Any]:
 
 _BRIEFING_SYSTEM = """Sen Türkçe sesli günlük brifing yazarısın. Çıktın doğrudan okunacak düz metin.
 Başlık, madde işareti, markdown, JSON kullanma.
-Her makaleye geçişte mutlaka kaynak adını ve konuyu belirten bir giriş cümlesi kullan.
+Her makaleye geçişte konuyu net anlat; JSON'daki `source` alanı dolu ve anlamlıysa kısaca yayıncıyı ekle.
+`source` boşsa kaynak adı söylemeden başlık ve bulguyla gir. Asla "Tavily" veya benzeri genel arama ifadesini kaynak diye kullanma.
 Doğal, sıcak ama profesyonel konuşma dili. Gereksiz İngilizce teknik terimden kaçın."""
 
 
@@ -101,9 +123,9 @@ Hedef uzunluk: 120–150 kelime (mutlaka bu aralıkta tut).
 1. Giriş — tam şu kalıpla başla:
 "Bugün {today}, CX Intelligence günlük özeti. {total} içerik tarandı, {len(tier1)} kritik bulgu var."
 
-2. Sadece Tier 1 (9–10 puan) içerikler: Her biri için önce kaynağı ve başlığı söyle, 
-ardından key_insight varsa onu 2 cümleyle anlat, yoksa one_liner'dan 2 cümle üret. 
-Aralarına doğal geçiş cümleleri koy.
+2. Sadece Tier 1 (9–10 puan) içerikler: Önce başlığı net söyle; `source` doluysa yayıncıyı kısaca ekle, boşsa atla.
+   key_insight varsa onu 2 cümleyle anlat, yoksa one_liner'dan 2 cümle üret.
+   Aralarına doğal geçiş cümleleri koy. "Tavily" diye bir kaynak adı kullanma.
 
 3. Kapanış: Tek cümle, kısa veda.
 
