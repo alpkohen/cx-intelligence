@@ -119,25 +119,25 @@ TAVILY_QUERIES = [
 
 # Tier-1 Tavily targeted sources (premium / analyst — günlük collect_all ile eklenir)
 TIER1_TAVILY_QUERIES = [
-    "site:gartner.com CX OR contact center OR customer experience",
-    "site:forrester.com customer experience OR contact center",
-    "site:mckinsey.com customer service OR customer experience",
-    "site:pwc.com customer experience report OR whitepaper",
-    "site:deloitte.com contact center OR customer experience whitepaper",
-    "site:dimensiondata.com CX OR contact center benchmark",
-    "site:cxnetwork.com report OR whitepaper OR research",
-    "site:hbr.org customer experience OR service",
-    "site:accenture.com customer experience report OR whitepaper",
-    "site:capgemini.com customer experience OR contact center research",
+    "Gartner CX customer experience contact center research report 2026",
+    "Forrester customer experience contact center platform evaluation 2026",
+    "McKinsey customer service customer experience strategy insight 2026",
+    "PwC customer experience report whitepaper 2026",
+    "Deloitte contact center customer experience transformation report 2026",
+    "Dimension Data CX contact center benchmark report 2026",
+    "CX Network research report whitepaper 2026",
+    "Harvard Business Review customer experience service 2026",
+    "Accenture customer experience report whitepaper 2026",
+    "Capgemini customer experience contact center research 2026",
 ]
 
 # Haftalık derin rapor/beyaz kâğıt sorguları — weekly_deep_scan ile (scheduler Pazartesi)
 WEEKLY_DEEP_QUERIES = [
-    "CX whitepaper 2025",
-    "contact center research report 2025",
-    "customer experience benchmark 2025",
-    "AI customer service whitepaper 2025",
-    "workforce management contact center report 2025",
+    "CX whitepaper 2026",
+    "contact center research report 2026",
+    "customer experience benchmark 2026",
+    "AI customer service whitepaper 2026",
+    "workforce management contact center report 2026",
 ]
 
 TIER1_SCORE_THRESHOLD = 6  # T1 ve T2_weekly kaynakları için minimum puan filtresi
