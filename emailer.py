@@ -191,7 +191,6 @@ def build_html_email(
         source    = _escape_html(it.get("source") or "")
         pub       = _escape_html(it.get("published_date") or "—")
         one_liner = _escape_html(it.get("one_liner") or "")
-        why       = _escape_html(it.get("why_relevant") or "")
         read_time = _escape_html(it.get("read_time") or "—")
         tb        = top_border(score)
 
@@ -227,8 +226,6 @@ def build_html_email(
           <div style="height:1px;background:#f0ede6;margin-bottom:14px;"></div>
           <p style="margin:0 0 4px 0;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#bbbbbb;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Özet</p>
           <p style="margin:0 0 12px 0;font-size:14px;color:#444444;line-height:1.55;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{one_liner}</p>{enrich_block}
-          <p style="margin:0 0 4px 0;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#bbbbbb;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Neden Önemli</p>
-          <p style="margin:0 0 16px 0;font-size:13px;color:#777777;line-height:1.5;font-style:italic;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{why}</p>
         </td>
       </tr>
       <tr>
