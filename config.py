@@ -18,16 +18,11 @@ MAX_TIER3_ITEMS = 5
 # açık blog/duyuru/özet yakalanır. Birçok büyük site RSS kapatır ya da bot engeller — doğrulanan uçları tuttuk.
 RSS_FEEDS = [
     # === CX MEDYA & TOPLULUK ===
-    "https://www.cxnetwork.com/rss/articles",
-    "https://www.cxnetwork.com/rss/cx-reports",
-    "https://www.cxnetwork.com/rss/news",
     "https://www.cxtoday.com/feed/",
     "https://customerthink.com/feed/",
     "https://cxm.co.uk/feed/",
     "https://diginomica.com/feed/",
     "https://techcrunch.com/tag/customer-experience/feed/",
-    "https://www.customerexperiencedive.com/feeds/news.rss",
-    "https://www.callcentrehelper.com/articles/feed",
     "https://www.sqmgroup.com/rss/blog",
     # === ANALİST & ENTERPRİSE YAYIN RSS (kamuya açık duyuru/analiz) ===
     "https://www.forrester.com/blogs/feed/",
@@ -37,10 +32,7 @@ RSS_FEEDS = [
     "https://blog.hubspot.com/customers/rss.xml",
     "https://www.salesforce.com/blog/feed/",
     "https://www.intercom.com/blog/feed/",
-    "https://www.zendesk.com/blog/feed/",
     "https://www.genesys.com/blog/rss",
-    "https://www.sprinklr.com/blog/feed/",
-    "https://www.qualtrics.com/blog/feed/",
     "https://callminer.com/blog/feed/",
     "https://www.nextiva.com/blog/feed/",
     "https://www.ringcentral.com/us/en/blog/feed/",
@@ -50,29 +42,15 @@ RSS_FEEDS = [
     "https://hyken.com/blog/feed/",
     "https://blakemichellemorgan.com/feed/",
     "https://adrianswinscoe.com/feed/",
-    "https://www.stevenvanbelleghem.com/blog/rss.xml",
     # === CALL CENTER ODAKLI ===
     "https://www.customerserv.com/blog/rss.xml",
     "https://www.strategiccontact.com/blog/feed/",
     # === BÜYÜK CCaaS PLATFORMLARI (eksik vendorlar) ===
-    "https://www.nice.com/blog/rss",
-    "https://www.five9.com/blog/rss",
-    "https://www.talkdesk.com/blog/feed/",
-    "https://www.avaya.com/blogs/feed/",
-    "https://www.8x8.com/blog/rss",
-    "https://www.verint.com/blog/rss",
     "https://blog.webex.com/feed/",
-    # === WORKFORCE MANAGEMENT ===
-    "https://www.calabrio.com/wfo/resource/blog/feed/",
-    "https://workforce.nice.com/blog/rss",
     # === AI / CONVERSATIONAL AI ===
-    "https://www.observe.ai/blog/rss.xml",
     "https://yellow.ai/blog/feed/",
-    "https://cresta.com/blog/feed/",
     # === SEKTÖR ETKİNLİKLERİ & YAYINLAR ===
     "https://www.nojitter.com/rss.xml",
-    "https://www.icmi.com/rss",
-    "https://www.customercontactweekdigital.com/rss",
     # === SEYAHAT / HAVACILIK CX ===
     "https://skift.com/feed/",
     "https://simpleflying.com/feed/",
