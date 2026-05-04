@@ -148,6 +148,3 @@ CLAUDE_MODEL = "claude-haiku-4-5-20251001"
 
 # Puanlama için tek istekte işlenecek içerik sayısı
 SCORER_BATCH_SIZE = 8
-
-# LinkedIn e-posta bölümündeki copy-paste etiketi
-LINKEDIN_SECTION_LABEL = "Alp LinkedIn projesine kopyala-yapıştır ile işle"

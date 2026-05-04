@@ -96,7 +96,6 @@ def run_weekly_scan() -> int:
     html_body = build_html_email(
         summarized,
         report_date=f"{today_tr} (Haftalık derin tarama)",
-        linkedin_suggestions=None,
         audio_url=None,
     )
     subject = format_subject(len(summarized), date_label=today_tr)

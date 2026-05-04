@@ -10,10 +10,9 @@ Adımlar:
 6) Üst limit kırpma
 6b) Yüksek skorlu makale zenginleştirme (summarizer)
 6c) Sesli özet + Netlify yükleme
-7) LinkedIn post adayı tespiti
-8) HTML e-posta oluşturma ve Resend ile gönderim
-9) Gönderilenleri Sheets'e işleme
-10) Özet istatistik günlüğü
+7) HTML e-posta oluşturma ve Resend ile gönderim
+8) Gönderilenleri Sheets'e işleme
+9) Özet istatistik günlüğü
 """
 
 from __future__ import annotations
@@ -29,17 +28,10 @@ from audio import generate_audio, generate_briefing_script
 from collector import collect_all
 from config import CLAUDE_MODEL, MAX_TIER2_ITEMS, MAX_TIER3_ITEMS
 from emailer import build_html_email, format_subject, send_daily_email
-from linkedin import suggest_linkedin_posts
 from netlify_upload import upload_audio
 from scorer import get_threshold, score_items
 from sheets import get_sent_count, load_sent_url_set, mark_as_sent
 from summarizer import enrich_high_score_items
-
-
-def _linkedin_enabled() -> bool:
-    """LINKEDIN_ENABLED=1/true/on/yes ise LinkedIn Claude adımı ve e-posta bölümü açılır."""
-    v = (os.getenv("LINKEDIN_ENABLED") or "0").strip().lower()
-    return v in ("1", "true", "yes", "on")
 
 
 def _configure_logging() -> None:
@@ -160,22 +152,6 @@ def main() -> int:
     log.info("Adım 7/9: HTML e-posta oluşturuluyor ve Resend ile gönderiliyor.")
     today_tr = datetime.now().strftime("%d.%m.%Y")
 
-    linkedin_suggestions = []
-    if _linkedin_enabled():
-        log.info("Adım 7b: LinkedIn post adayları tespit ediliyor.")
-        try:
-            linkedin_suggestions = suggest_linkedin_posts(
-                scored_items=selected,
-                anthropic_api_key=anthropic_key,
-            )
-            log.info("LinkedIn önerisi sayısı: %s", len(linkedin_suggestions))
-        except Exception:
-            log.exception("LinkedIn adımı başarısız; devam ediliyor.")
-    else:
-        log.info(
-            "LinkedIn bölümü kapalı (LINKEDIN_ENABLED ile açılır); Claude çağrısı yapılmayacak."
-        )
-
     audio_url = None
     try:
         log.info("Adım 6c: Sesli özet üretiliyor...")
@@ -191,7 +167,6 @@ def main() -> int:
     html_body = build_html_email(
         selected,
         report_date=today_tr,
-        linkedin_suggestions=linkedin_suggestions,
         audio_url=audio_url if audio_url else None,
     )
     subject = format_subject(len(selected), date_label=today_tr)
