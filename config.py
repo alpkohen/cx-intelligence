@@ -6,10 +6,6 @@ Tüm sabitler ve RSS/Tavily konfigürasyonu buradan yönetilir.
 # Her RSS kaynağından alınacak maksimum içerik sayısı (tek kaynağın listeyi doldurmasını önler)
 RSS_MAX_ITEMS_PER_FEED = 3
 
-# Bu puanın altı katman seçiminde üçüncü kademeye girmezken, günlük akışın ilk filtresinde
-# artık `scorer.get_threshold()` kullanılır (standart: DEFAULT_SCORE_THRESHOLD, T1/T2_weekly: TIER1_SCORE_THRESHOLD).
-MIN_SCORE_TO_SEND = 5
-
 # Katmanlı içerik seçimi:
 # 9-10 puan alanlar her zaman dahil (sınırsız)
 # 7-8 puan: en fazla bu kadar
@@ -58,12 +54,6 @@ RSS_FEEDS = [
     # === CALL CENTER ODAKLI ===
     "https://www.customerserv.com/blog/rss.xml",
     "https://www.strategiccontact.com/blog/feed/",
-    # === REDDIT ===
-    "https://www.reddit.com/r/callcenter/.rss",
-    "https://www.reddit.com/r/customerservice/.rss",
-    "https://www.reddit.com/r/CustomerSuccess/.rss",
-    # === AKADEMİK ===
-    "https://arxiv.org/rss/cs.HC",
     # === BÜYÜK CCaaS PLATFORMLARI (eksik vendorlar) ===
     "https://www.nice.com/blog/rss",
     "https://www.five9.com/blog/rss",
@@ -94,10 +84,6 @@ RSS_FEEDS = [
 # Tavily: araştırma duyuruları, analist özeti haberleri, benchmark haberleri
 # Tam PDF içerikler genelde aboneliktir; arama özeti/link + basın çıkışına düşer.
 TAVILY_QUERIES = [
-    "Gartner Forrester IDC customer experience contact center report 2026",
-    "Gartner Magic Quadrant CCaaS customer service CX",
-    "Forrester Wave customer service contact center CX platform evaluation",
-    "IDC Worldwide customer experience CX market forecast report",
     "McKinsey customer experience personalization loyalty banking retail research insight",
     "Deloitte EY customer contact workforce transformation CX report",
     "PwC Bain customer expectation digital omnichannel CX study",

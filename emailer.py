@@ -357,7 +357,6 @@ def build_html_email(
     <div style="display:flex;gap:20px;">
       <a href="https://realcx.co" style="color:#888;text-decoration:none;font-size:12px;">realcx.co</a>
       <a href="https://uniq-tr.com" style="color:#888;text-decoration:none;font-size:12px;">uniq-tr.com</a>
-      <a href="https://linkedin.com/company/realcx" style="color:#888;text-decoration:none;font-size:12px;">LinkedIn</a>
     </div>
   </div>
 
