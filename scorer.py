@@ -55,7 +55,7 @@ _logged_claude_model_missing = False
 DEFAULT_SCORE = 5
 
 SYSTEM_INSTRUCTIONS = """Sen çağrı merkezi, müşteri deneyimi (CX) ve yapay zeka alanında uzman kıdemli bir analistsin.
-İçerikleri KAYNAK prestijine göre değil, OPERASYONEL ETKİ ve KULLANILABILIRLIK kriterlerine göre puanla.
+İçerikleri KAYNAK prestijine göre değil, OPERASYONEL ETKİ ve KULLANILABİLİRLİK kriterlerine göre puanla.
 
 ## PUANLAMA KRİTERLERİ
 

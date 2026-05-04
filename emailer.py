@@ -81,26 +81,6 @@ def _escape_html(text: str) -> str:
     )
 
 
-def _truncate_title_plain(text: str, max_chars: int = 35) -> str:
-    t = text.strip()
-    if len(t) <= max_chars:
-        return t
-    return (t[: max_chars - 1].rstrip() + "…") if max_chars > 1 else "…"
-
-
-def _audio_meta_line(items: list[dict[str, Any]]) -> str:
-    """Tier 1 kısaltılmış başlıklar + Önemli (7–8) sayısı; metin düz."""
-    tier1_parts = [
-        _truncate_title_plain(str(it.get("title") or ""), 35)
-        for it in items
-        if int(it.get("score") or 0) >= 9
-    ]
-    onemli_n = sum(1 for it in items if 7 <= int(it.get("score") or 0) <= 8)
-    if tier1_parts:
-        return ", ".join(tier1_parts) + f" · Önemli: {onemli_n} makale"
-    return f"Önemli: {onemli_n} makale"
-
-
 def build_summary_section(items: list[dict[str, Any]]) -> str:
     """E-postanın başına eklenen özet kutu: tier sayıları + toplam içerik adedi."""
     if not items:
@@ -200,7 +180,10 @@ def build_html_email(
             if ks_raw:
                 ks_esc = _escape_html(ks_raw)
                 enrich_block = f"""
-          <p style="margin:0 0 12px 0;font-size:13px;color:#c9a84c;font-style:italic;line-height:1.5;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">KRİTİK BULGU<br>{ks_esc}</p>
+          <div style="margin:0 0 12px 0;background:#fff8e7;border-left:3px solid #c9a84c;padding:8px 12px;">
+            <p style="margin:0 0 6px 0;font-size:14px;font-weight:700;color:#111111;line-height:1.4;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">KRİTİK BULGU</p>
+            <p style="margin:0;font-size:14px;font-weight:700;color:#111111;line-height:1.5;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{ks_esc}</p>
+          </div>
 """
 
         cards_html.append(f"""
@@ -257,7 +240,6 @@ def build_html_email(
     audio_src = (audio_url or "").strip() if audio_url is not None else ""
     if audio_src:
         safe_audio = _escape_html(audio_src)
-        audio_meta_esc = _escape_html(_audio_meta_line(items))
         play_svg = (
             '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="14" '
             'viewBox="0 0 24 24" aria-hidden="true" style="display:block;">'
@@ -273,8 +255,7 @@ def build_html_email(
         </div>
         <div style="flex:1 1 auto;min-width:0;margin-right:12px;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">
           <p style="margin:0 0 2px;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#c9a84c;line-height:1.2;">SESLİ ÖZET</p>
-          <p style="margin:0 0 4px;font-size:13px;color:#888888;line-height:1.35;">Bugünün bülteni &nbsp;·&nbsp; dinle &rarr;</p>
-          <p style="margin:0;font-size:11px;color:#555555;line-height:1.4;">{audio_meta_esc}</p>
+          <p style="margin:0;font-size:13px;color:#888888;line-height:1.35;">Bugünün sesli özeti &nbsp;·&nbsp; dinle &rarr;</p>
         </div>
         <div style="flex-shrink:0;align-self:stretch;display:flex;align-items:flex-end;">
           <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0;border-collapse:collapse;">
