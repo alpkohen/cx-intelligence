@@ -26,7 +26,7 @@ from dotenv import load_dotenv
 
 from audio import generate_audio, generate_briefing_script
 from collector import collect_all
-from config import CLAUDE_MODEL, MAX_TIER2_ITEMS, MAX_TIER3_ITEMS
+from config import CLAUDE_MODEL, MAX_TIER1_ITEMS, MAX_TIER2_ITEMS, MAX_TIER3_ITEMS
 from emailer import build_html_email, format_subject, send_daily_email
 from netlify_upload import upload_audio
 from scorer import get_threshold, score_items
@@ -122,11 +122,12 @@ def main() -> int:
 
     # --- 6. Katmanlı seçim ---
     log.info(
-        "Adım 6/9: Katmanlı içerik seçimi — Tier1(9-10): sınırsız, Tier2(7-8): max %s, Tier3(5-6): max %s.",
+        "Adım 6/9: Katmanlı içerik seçimi — Tier1(9-10): max %s, Tier2(7-8): max %s, Tier3(5-6): max %s.",
+        MAX_TIER1_ITEMS,
         MAX_TIER2_ITEMS,
         MAX_TIER3_ITEMS,
     )
-    tier1 = [it for it in passed if int(it.get("score") or 0) >= 9]
+    tier1 = [it for it in passed if int(it.get("score") or 0) >= 9][:MAX_TIER1_ITEMS]
     tier2 = [it for it in passed if 7 <= int(it.get("score") or 0) <= 8][:MAX_TIER2_ITEMS]
     tier3 = [it for it in passed if 5 <= int(it.get("score") or 0) <= 6][:MAX_TIER3_ITEMS]
     selected = tier1 + tier2 + tier3

@@ -6,12 +6,13 @@ Tüm sabitler ve RSS/Tavily konfigürasyonu buradan yönetilir.
 # Her RSS kaynağından alınacak maksimum içerik sayısı (tek kaynağın listeyi doldurmasını önler)
 RSS_MAX_ITEMS_PER_FEED = 3
 
-# Katmanlı içerik seçimi:
-# 9-10 puan alanlar her zaman dahil (sınırsız)
-# 7-8 puan: en fazla bu kadar
-MAX_TIER2_ITEMS = 10
-# 5-6 puan: en fazla bu kadar
-MAX_TIER3_ITEMS = 5
+# Katmanlı içerik seçimi — günlük maksimum 7 madde hedefi:
+# 9-10 puan: en parlak içerikler
+MAX_TIER1_ITEMS = 3
+# 7-8 puan: önemli ama zorunlu değil
+MAX_TIER2_ITEMS = 4
+# 5-6 puan: kalite düşük, gönderilmiyor
+MAX_TIER3_ITEMS = 0
 
 # RSS kaynakları.
 # Not: IDC Gartner vb. tam raporlar çoğu zaman ücret kapısı arkasındadır; günlükte genelde kamuya

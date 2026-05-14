@@ -170,19 +170,24 @@ def build_html_email(
         url       = _escape_html(it.get("url") or "#")
         source    = _escape_html(it.get("source") or "")
         pub       = _escape_html(it.get("published_date") or "—")
-        one_liner = _escape_html(it.get("one_liner") or "")
+        one_liner = it.get("one_liner") or ""
         read_time = _escape_html(it.get("read_time") or "—")
         tb        = top_border(score)
 
+        # Ana gövde metni: deep_summary varsa onu kullan (tam makaleden), yoksa one_liner'a dön
+        ds_raw = str(it.get("deep_summary") or "").strip()
+        body_text = _escape_html(ds_raw) if ds_raw else _escape_html(one_liner)
+
+        # Callout: action_point — danışman perspektifinden ne yapılmalı (key_insight'tan farklı bilgi)
         enrich_block = ""
         if score >= 7:
-            ks_raw = str(it.get("key_insight") or "").strip()
-            if ks_raw:
-                ks_esc = _escape_html(ks_raw)
+            ap_raw = str(it.get("action_point") or "").strip()
+            if ap_raw:
+                ap_esc = _escape_html(ap_raw)
                 enrich_block = f"""
-          <div style="margin:0 0 12px 0;background:#fff8e7;border-left:3px solid #c9a84c;padding:8px 12px;">
-            <p style="margin:0 0 6px 0;font-size:14px;font-weight:700;color:#111111;line-height:1.4;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">KRİTİK BULGU</p>
-            <p style="margin:0;font-size:14px;font-weight:700;color:#111111;line-height:1.5;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{ks_esc}</p>
+          <div style="margin:0 0 12px 0;background:#f0f7ff;border-left:3px solid #4a90d9;padding:8px 12px;">
+            <p style="margin:0 0 4px 0;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#4a90d9;line-height:1.4;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Danışman Notu</p>
+            <p style="margin:0;font-size:13px;color:#1a3a5c;line-height:1.5;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{ap_esc}</p>
           </div>
 """
 
@@ -207,8 +212,7 @@ def build_html_email(
             <span>{pub}</span>
           </p>
           <div style="height:1px;background:#f0ede6;margin-bottom:14px;"></div>
-          <p style="margin:0 0 4px 0;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#bbbbbb;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">Özet</p>
-          <p style="margin:0 0 12px 0;font-size:14px;color:#444444;line-height:1.55;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{one_liner}</p>{enrich_block}
+          <p style="margin:0 0 12px 0;font-size:14px;color:#444444;line-height:1.55;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">{body_text}</p>{enrich_block}
         </td>
       </tr>
       <tr>
